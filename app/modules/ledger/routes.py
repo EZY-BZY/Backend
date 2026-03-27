@@ -41,8 +41,8 @@ def get_ledger_entry(entry_id: UUID, service: LedgerServiceDep):
 def get_balance(
     from_company_id: UUID,
     to_company_id: UUID,
-    currency: str = "USD",
     service: LedgerServiceDep,
+    currency: str = "USD",
 ) -> dict:
     """Balance that from_company owes to_company (positive = debt)."""
     bal = service.balance_between(from_company_id, to_company_id, currency)

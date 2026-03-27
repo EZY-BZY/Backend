@@ -12,11 +12,11 @@ router = APIRouter(prefix="/audit-logs", tags=["audit_logs"])
 
 @router.get("", response_model=list[AuditLogRead])
 def list_audit_logs(
+    service: AuditLogServiceDep,
     company_id: UUID | None = None,
     action: str | None = None,
     skip: int = 0,
     limit: int = 100,
-    service: AuditLogServiceDep,
 ) -> list[AuditLogRead]:
     """List audit logs for current company. In production: company_id from auth."""
     if not company_id:

@@ -18,4 +18,5 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use `sh` so it works when `.:/app` bind-mount overwrites the image (host file may not be +x)
+ENTRYPOINT ["/bin/sh", "/app/docker/entrypoint.sh"]

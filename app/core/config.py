@@ -1,9 +1,10 @@
 """Environment-based settings. Loaded once at startup."""
 
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn
+from pydantic import Field, PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,14 +33,27 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = Field(default=7)
     bcrypt_rounds: int = Field(default=12, ge=10, le=14)
 
-    # Database
+    # PostgreSQL — relational data (ORM, migrations)
     database_url: PostgresDsn = Field(
         default="postgresql+psycopg2://postgres:postgres@localhost:5432/supplier_saas"
     )
     database_echo: bool = Field(default=False, description="Echo SQL for debugging")
 
-    # Redis
-    redis_url: RedisDsn | None = Field(default=None)
+    # MongoDB — documents, flexible schemas, analytics payloads
+    mongodb_url: str = Field(
+        default="mongodb://localhost:27017",
+        description="MongoDB connection URI",
+    )
+    mongodb_database: str = Field(
+        default="supplier_saas",
+        description="Default database name for MongoDB",
+    )
+
+    # Redis — cache, rate limits, pub/sub, queue readiness
+    redis_url: RedisDsn = Field(
+        default="redis://localhost:6379/0",
+        description="Redis connection URL",
+    )
 
     # CORS
     cors_origins: list[str] = Field(
@@ -48,6 +62,27 @@ class Settings(BaseSettings):
     cors_allow_credentials: bool = Field(default=True)
     cors_allow_methods: list[str] = Field(default=["*"])
     cors_allow_headers: list[str] = Field(default=["*"])
+
+    @field_validator("cors_origins", "cors_allow_methods", "cors_allow_headers", mode="before")
+    @classmethod
+    def _parse_list_from_env(cls, v: Any) -> Any:
+        """
+        Docker / shell often set CORS_ORIGINS as a plain string.
+        Accept: JSON array, comma-separated list, or Python list.
+        """
+        if v is None or isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            s = v.strip()
+            if not s:
+                return v
+            if s.startswith("["):
+                try:
+                    return json.loads(s)
+                except json.JSONDecodeError:
+                    pass
+            return [x.strip() for x in s.split(",") if x.strip()]
+        return v
 
 
 @lru_cache

@@ -6,7 +6,17 @@ Production-ready **modular monolith** backend for a multi-tenant SaaS for suppli
 
 - **Modular monolith**: One deployable app, with clear module boundaries. Each module owns its models, schemas, repositories, services, routes, and dependencies.
 - **Multi-tenancy**: Each supplier company is a tenant. All data is isolated by `company_id`; the backend never trusts client-sent tenant IDs.
-- **Tech stack**: FastAPI, PostgreSQL, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT (access + refresh), Redis-ready, Docker.
+- **Tech stack**: FastAPI, PostgreSQL, MongoDB, Redis, SQLAlchemy 2.0, Alembic, Pydantic v2, JWT (access + refresh), Docker.
+
+### Infrastructure connections
+
+| Store | Purpose | Config |
+|-------|---------|--------|
+| **PostgreSQL** | Relational data (ORM, migrations) | `DATABASE_URL` |
+| **MongoDB** | Documents, flexible payloads | `MONGODB_URL`, `MONGODB_DATABASE` |
+| **Redis** | Cache, pub/sub, queues | `REDIS_URL` |
+
+Connection helpers live under `app/infrastructure/` (`postgres.py`, `mongo.py`, `redis_service.py`). Use `from app.infrastructure.deps import DbSession, MongoDatabase, RedisClient` in routes. See `docs/INFRASTRUCTURE.md`.
 
 ### Module layout
 
@@ -14,6 +24,7 @@ Production-ready **modular monolith** backend for a multi-tenant SaaS for suppli
 app/
   core/           # Config, security, logging, exceptions
   common/         # Pagination, shared response schemas
+  infrastructure/ # Postgres, MongoDB, Redis connection services
   db/             # Session, base models, model registry
   api/            # Shared deps, v1 router
   modules/
@@ -60,20 +71,22 @@ app/
 
 ### Docker
 
+Stack: **app**, **PostgreSQL**, **MongoDB**, **Redis**.
+
 ```bash
-docker-compose up -d db redis
-# Wait for DB to be healthy, then:
+docker-compose up -d db mongo redis
+# Wait for services to be healthy, then:
 alembic upgrade head
 docker-compose up app
 ```
 
-Or run everything (app + db + redis) and run migrations from the host:
+Or start the full stack:
 
 ```bash
-docker-compose up -d db redis
-alembic upgrade head
-docker-compose up app
+docker-compose up --build
 ```
+
+Readiness (all three stores): `GET http://localhost:8000/health/ready`
 
 ## API versioning
 

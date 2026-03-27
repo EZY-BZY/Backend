@@ -121,8 +121,8 @@ def list_terms(
 )
 def get_term_by_language(
     term_id: UUID,
-    lang: str = Query(..., pattern="^(ar|en|fr)$"),
     db: DbSession,
+    lang: str = Query(..., pattern="^(ar|en|fr)$"),
 ):
     """Get term content for a specific language (ar, en, fr)."""
     service = _get_service(db)
