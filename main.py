@@ -3,10 +3,12 @@ Supplier SaaS backend - modular monolith.
 Run with: uvicorn main:app --reload
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
 
 from app.common.api_response import ApiResponse, api_success
 
@@ -69,6 +71,16 @@ def create_app() -> FastAPI:
     setup_exception_handlers(app)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    assets_root: Path = settings.media_assets_path
+    assets_root.mkdir(parents=True, exist_ok=True)
+    for sub in ("images", "videos", "files"):
+        (assets_root / sub).mkdir(parents=True, exist_ok=True)
+    app.mount(
+        f"{settings.api_v1_prefix}/assets",
+        StaticFiles(directory=str(assets_root)),
+        name="assets",
+    )
 
     @app.get("/health", response_model=ApiResponse[dict])
     def health():

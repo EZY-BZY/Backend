@@ -2,9 +2,10 @@
 
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn, field_validator
+from pydantic import Field, PostgresDsn, RedisDsn, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,
     )
 
     # App
@@ -70,6 +72,73 @@ class Settings(BaseSettings):
         default=None,
         description="Absolute path to folder containing *.html PDF templates; default <project>/templates/pdf",
     )
+
+    # Local media uploads (chunked saves under media_assets_path/{images,videos,files}/)
+    media_assets_dir: str | None = Field(
+        default=None,
+        alias="MEDIA_ASSETS_DIR",
+        description="Absolute path to assets root; default <project>/assets",
+    )
+    assets_url_path_prefix: str = Field(
+        default="/api/v1/assets",
+        alias="ASSETS_URL_PATH_PREFIX",
+        description="URL path prefix for static files (must match FastAPI StaticFiles mount)",
+    )
+    upload_chunk_size_bytes: int = Field(
+        default=1024 * 1024,
+        alias="UPLOAD_CHUNK_SIZE_BYTES",
+        ge=64 * 1024,
+        le=16 * 1024 * 1024,
+    )
+    max_image_upload_bytes: int = Field(
+        default=15 * 1024 * 1024,
+        alias="MAX_IMAGE_UPLOAD_BYTES",
+        ge=1024,
+    )
+    max_video_upload_bytes: int = Field(
+        default=200 * 1024 * 1024,
+        alias="MAX_VIDEO_UPLOAD_BYTES",
+        ge=1024,
+    )
+    max_general_file_upload_bytes: int = Field(
+        default=50 * 1024 * 1024,
+        alias="MAX_GENERAL_FILE_UPLOAD_BYTES",
+        ge=1024,
+    )
+    accepted_image_types: str = Field(
+        default="jpg,jpeg,png,webp",
+        alias="ACCEPTED_IMAGE_TYPES",
+    )
+    accepted_video_types: str = Field(
+        default="mp4,mov,avi,webm",
+        alias="ACCEPTED_VIDEO_TYPES",
+    )
+    accepted_file_types: str = Field(
+        default="pdf,doc,docx,xls,xlsx,csv,txt",
+        alias="ACCEPTED_FILE_TYPES",
+    )
+    max_batch_upload_files: int = Field(
+        default=40,
+        alias="MAX_BATCH_UPLOAD_FILES",
+        ge=1,
+        le=200,
+        description="Max files per multi-upload request (auto-detect batch)",
+    )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def media_assets_path(self) -> Path:
+        if self.media_assets_dir and str(self.media_assets_dir).strip():
+            return Path(self.media_assets_dir).expanduser().resolve()
+        return Path(__file__).resolve().parents[2] / "assets"
+
+    def media_extension_allowlist(self, kind: Literal["image", "video", "file"]) -> set[str]:
+        raw = {
+            "image": self.accepted_image_types,
+            "video": self.accepted_video_types,
+            "file": self.accepted_file_types,
+        }[kind]
+        return {x.strip().lower().lstrip(".") for x in raw.split(",") if x.strip()}
 
     @field_validator("cors_origins", "cors_allow_methods", "cors_allow_headers", mode="before")
     @classmethod

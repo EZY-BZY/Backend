@@ -18,7 +18,7 @@ from app.modules.beasy_employees.service import EmployeeService
 from app.db.session import DbSession
 from app.modules.beasy_employees.enums import AccountStatus
 
-router = APIRouter(prefix="/employees", tags=["Beasy employees"])
+router = APIRouter(prefix="/employees", tags=["Employees (Beasy)"])
 
 
 def _get_service(db: DbSession) -> EmployeeService:

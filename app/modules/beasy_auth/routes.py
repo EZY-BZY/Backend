@@ -15,7 +15,7 @@ from app.modules.beasy_auth.schemas import DashboardLoginRequest, RefreshTokenRe
 from app.modules.beasy_employees.schemas import TokenResponse
 from app.modules.beasy_employees.service import EmployeeService
 
-router = APIRouter(prefix="/auth", tags=["Beasy auth"])
+router = APIRouter(prefix="/auth", tags=["Authentication (Beasy)"])
 
 
 def _employee_service(db: DbSession) -> EmployeeService:

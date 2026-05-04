@@ -4,8 +4,11 @@ from fastapi import APIRouter
 
 from app.modules.beasy_auth.routes import router as beasy_auth_router
 from app.modules.beasy_employees.routes import router as employees_router
+from app.modules.industries.routes_beasy import router as industries_beasy_router
+from app.modules.industries.routes_global import router as industries_public_router
+from app.modules.media.routes_beasy import router as media_beasy_router
 from app.modules.terms.routes_beasy import router as terms_beasy_router
-from app.modules.terms.routes_global import router as terms_global_router
+from app.modules.terms.routes_global import router as terms_public_router
 
 api_router = APIRouter()
 
@@ -15,16 +18,19 @@ api_router = APIRouter()
 beasy_router = APIRouter(prefix="/beasy")
 beasy_router.include_router(beasy_auth_router)
 beasy_router.include_router(employees_router)
+beasy_router.include_router(media_beasy_router)
+beasy_router.include_router(industries_beasy_router)
 beasy_router.include_router(terms_beasy_router)
 # add routes to the action and ApiDocs
 api_router.include_router(beasy_router)
 
-#--------------------------------global_router--------------------------------
+#--------------------------------public_router--------------------------------
 # These are the routes that are shared by all Beasy employees and clients
 # example: View Terms
-global_router = APIRouter(prefix="/global", tags=["Global Routes"])
-global_router.include_router(terms_global_router)
-api_router.include_router(global_router)
+public_router = APIRouter(prefix="/public", tags=["Public Routes"])
+public_router.include_router(industries_public_router)
+public_router.include_router(terms_public_router)
+api_router.include_router(public_router)
 
 #--------------------------------clients_router--------------------------------
 # These are the routes that are only for clients
