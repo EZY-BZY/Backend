@@ -1,5 +1,7 @@
 # Organization Management Module
 
+> **Current code:** B-easy staff APIs live under **`app/modules/beasy_employees/`** (Beasy employees). See [BEASY_EMPLOYEES.md](./BEASY_EMPLOYEES.md).
+
 ## Overview
 
 This module provides **organization-level** APIs: one **owner**, multiple **members**, and **terms and conditions** (multilingual). It is separate from the multi-tenant companies/users module.

@@ -9,7 +9,7 @@ Example::
     def example(db: DbSession, mongo: MongoDatabase, cache: RedisClient):
         cache.set("k", "v", ex=60)
         mongo["events"].insert_one({"type": "ping"})
-        return {"ok": True}
+        return {"status_code": 200, "Message": "Success", "Data": None}
 """
 
 from app.infrastructure.mongo import MongoDatabase

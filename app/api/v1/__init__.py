@@ -1,36 +1,31 @@
-"""API v1 router - mounts all module routes."""
+"""API v1 router - mounts active module routes."""
 
 from fastapi import APIRouter
 
-from app.modules.auth.routes import router as auth_router
-from app.modules.companies.routes import router as companies_router
-from app.modules.users.routes import router as users_router
-from app.modules.roles.routes import router as roles_router
-from app.modules.products.routes import router as products_router
-from app.modules.orders.routes import router as orders_router
-from app.modules.invoices.routes import router as invoices_router
-from app.modules.payments.routes import router as payments_router
-from app.modules.ledger.routes import router as ledger_router
-from app.modules.audit_logs.routes import router as audit_logs_router
-from app.modules.employees.routes import router as employees_router
-from app.modules.terms.routes import router as terms_router
+from app.modules.beasy_auth.routes import router as beasy_auth_router
+from app.modules.beasy_employees.routes import router as employees_router
 
 api_router = APIRouter()
 
-# Mount module routes under /api/v1 (prefix added in main)
-api_router.include_router(auth_router)
-api_router.include_router(companies_router)
-api_router.include_router(users_router)
-api_router.include_router(roles_router)
-api_router.include_router(products_router)
-api_router.include_router(orders_router)
-api_router.include_router(invoices_router)
-api_router.include_router(payments_router)
-api_router.include_router(ledger_router)
-api_router.include_router(audit_logs_router)
+#--------------------------------beasy_router--------------------------------
+# These are the routes that are shared by all Beasy employees
+# example: Login to dashboard, CUD Terms
+beasy_router = APIRouter(prefix="/beasy")
+beasy_router.include_router(beasy_auth_router)
+beasy_router.include_router(employees_router)
+# add routes to the action and ApiDocs
+api_router.include_router(beasy_router)
 
-# Organization management: employees (owner + members) and terms
-organization_router = APIRouter(prefix="/organization", tags=["organization"])
-organization_router.include_router(employees_router)
-organization_router.include_router(terms_router)
-api_router.include_router(organization_router)
+#--------------------------------global_router--------------------------------
+# These are the routes that are shared by all Beasy employees and clients
+# example: View Terms
+global_router = APIRouter(prefix="/global", tags=["Global Routes"])
+# global_router.include_router()
+# api_router.include_router(global_router)
+
+#--------------------------------clients_router--------------------------------
+# These are the routes that are only for clients
+# example: Create account, Business Account, etc.
+clients_router = APIRouter(prefix="/clients", tags=["Clients Routes"])
+# add routes to the action and ApiDocs
+# api_router.include_router(clients_router)

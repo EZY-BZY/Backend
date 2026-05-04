@@ -22,23 +22,18 @@ Connection helpers live under `app/infrastructure/` (`postgres.py`, `mongo.py`, 
 
 ```
 app/
-  core/           # Config, security, logging, exceptions
-  common/         # Pagination, shared response schemas
-  infrastructure/ # Postgres, MongoDB, Redis connection services
-  db/             # Session, base models, model registry
-  api/            # Shared deps, v1 router
+  core/              # Config, security, logging, exceptions
+  common/            # Pagination, API envelope, shared schemas
+  infrastructure/    # Postgres, MongoDB, Redis connection services
+  db/                # Session, base models, model registry
+  api/               # Shared deps, v1 router
   modules/
-    auth/         # Login, refresh, get_current_user, require_permission
-    companies/    # Tenant (company) CRUD
-    users/        # Employees (company-scoped)
-    roles/        # Roles and permissions (RBAC)
-    products/     # Product catalog per company
-    orders/       # Orders between companies
-    invoices/     # Invoices
-    payments/     # Payments
-    ledger/       # Ledger entries (who owes whom)
-    audit_logs/   # Audit trail
+    beasy_auth/       # Beasy dashboard login + JWT refresh
+    beasy_employees/  # Beasy employees (B-easy staff: Super User, members)
 ```
+
+**Beasy auth** (dashboard login) is documented in [docs/BEASY_AUTH.md](docs/BEASY_AUTH.md).  
+**Beasy employees** (folder `beasy_employees`, import `app.modules.beasy_employees`) is documented in [docs/BEASY_EMPLOYEES.md](docs/BEASY_EMPLOYEES.md).
 
 ## Quick start
 
@@ -140,7 +135,7 @@ All module routes are under **`/api/v1`**, e.g.:
 
 ## Health check
 
-- **GET /health** returns `{"status": "ok", "service": "..."}` for load balancers and containers.
+- **GET /health** returns `{"status": "Success", "service": "..."}` for load balancers and containers.
 
 ## Development
 

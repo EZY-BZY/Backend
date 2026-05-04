@@ -6,6 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.common.api_response import ApiResponse, api_success
 
 from app.core.config import get_settings
 from app.core.logging_config import setup_logging
@@ -67,10 +70,14 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
-    @app.get("/health")
+    @app.get("/health", response_model=ApiResponse[dict])
     def health():
         """Health check for load balancers and containers."""
-        return {"status": "ok", "service": settings.app_name}
+        return ApiResponse(
+            status_code=200,
+            Message="Success",
+            Data={"App Name": settings.app_name},
+        )
 
     @app.get("/health/ready")
     def health_ready():
@@ -79,12 +86,18 @@ def create_app() -> FastAPI:
         mongo = get_mongo_service().health_check()
         redis_ok = get_redis_service().health_check()
         ok = pg and mongo and redis_ok
-        return {
-            "status": "ready" if ok else "degraded",
-            "postgresql": "up" if pg else "down",
-            "mongodb": "up" if mongo else "down",
-            "redis": "up" if redis_ok else "down",
-        }
+        http = 200 if ok else 503
+        body = api_success(
+            {
+                "status": "ready" if ok else "degraded",
+                "postgresql": "up" if pg else "down",
+                "mongodb": "up" if mongo else "down",
+                "redis": "up" if redis_ok else "down",
+            },
+            message="ready" if ok else "degraded",
+            status_code=http,
+        )
+        return JSONResponse(status_code=http, content=body)
 
     return app
 
