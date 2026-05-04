@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     )
 
     # App
-    app_name: str = Field(default="Supplier SaaS API", description="Application name")
+    app_name: str = Field(default="B-easy SaaS API Default Value", description="Application name")
     environment: Literal["development", "staging", "production"] = Field(
         default="development"
     )
@@ -27,11 +27,13 @@ class Settings(BaseSettings):
     api_v1_prefix: str = Field(default="/api/v1")
 
     # Security
-    secret_key: str = Field(default="change-me-in-production-min-32-chars-long")
+    secret_key: str = Field(default="test")
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30)
     refresh_token_expire_days: int = Field(default=7)
     bcrypt_rounds: int = Field(default=12, ge=10, le=14)
+
+    version: str = Field(default="0.1.0")
 
     # PostgreSQL — relational data (ORM, migrations)
     database_url: PostgresDsn = Field(
@@ -62,6 +64,12 @@ class Settings(BaseSettings):
     cors_allow_credentials: bool = Field(default=True)
     cors_allow_methods: list[str] = Field(default=["*"])
     cors_allow_headers: list[str] = Field(default=["*"])
+
+    # PDF (Jinja2 + WeasyPrint; templates in templates/pdf/ by default)
+    pdf_templates_dir: str | None = Field(
+        default=None,
+        description="Absolute path to folder containing *.html PDF templates; default <project>/templates/pdf",
+    )
 
     @field_validator("cors_origins", "cors_allow_methods", "cors_allow_headers", mode="before")
     @classmethod

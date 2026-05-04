@@ -48,8 +48,8 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
         title=settings.app_name,
-        description="Multi-tenant SaaS backend for suppliers",
-        version="0.1.0",
+        description=f"B-easy Multi-tenant SaaS backend v{settings.version}",
+        version=settings.version,
         lifespan=lifespan,
         docs_url="/docs",
         redoc_url="/redoc",

@@ -1,0 +1,34 @@
+{
+  "document": {
+    "meta": {
+      "title": "Example supplier report"
+    },
+    "title": "Monthly order summary",
+    "reference": "EX-2026-03-001",
+    "generated_at": "2026-03-27T14:00:00Z",
+    "currency": "USD",
+    "description": "Sample data for PDF generator smoke test. Your API can build this dict from DB rows.",
+    "line_items": [
+      {
+        "sku": "SKU-1001",
+        "name": "Industrial gasket set",
+        "quantity": 24,
+        "unit_price": "12.50",
+        "line_total": "300.00"
+      },
+      {
+        "sku": "SKU-2200",
+        "name": "Steel bracket M8",
+        "quantity": 100,
+        "unit_price": "0.85",
+        "line_total": "85.00"
+      }
+    ],
+    "totals": {
+      "subtotal": "385.00",
+      "tax": "38.50",
+      "grand_total": "423.50"
+    },
+    "footer_note": "Example only — not a real invoice."
+  }
+}

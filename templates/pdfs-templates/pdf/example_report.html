@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ document.meta.title | default('Report') }}</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    body { font-family: DejaVu Sans, Helvetica, Arial, sans-serif; font-size: 11pt; color: #222; }
+    h1 { font-size: 18pt; margin: 0 0 8pt 0; color: #111; }
+    .muted { color: #666; font-size: 9pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12pt; }
+    th, td { border: 1px solid #ccc; padding: 8pt; text-align: left; }
+    th { background: #f4f4f4; font-weight: 600; }
+    tfoot td { font-weight: 600; background: #fafafa; }
+    .footer { margin-top: 24pt; padding-top: 8pt; border-top: 1px solid #ddd; font-size: 9pt; color: #666; }
+  </style>
+</head>
+<body>
+  <h1>{{ document.title }}</h1>
+  <p class="muted">
+    Generated: {{ document.generated_at }} · Reference: {{ document.reference | default('—') }}
+  </p>
+  {% if document.description %}
+  <p>{{ document.description }}</p>
+  {% endif %}
+
+  <table>
+    <thead>
+      <tr>
+        <th>SKU</th>
+        <th>Item</th>
+        <th style="text-align:right;">Qty</th>
+        <th style="text-align:right;">Unit</th>
+        <th style="text-align:right;">Line total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in document.line_items %}
+      <tr>
+        <td>{{ row.sku | default('—') }}</td>
+        <td>{{ row.name }}</td>
+        <td style="text-align:right;">{{ row.quantity }}</td>
+        <td style="text-align:right;">{{ row.unit_price }} {{ document.currency }}</td>
+        <td style="text-align:right;">{{ row.line_total }} {{ document.currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% if document.totals %}
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;">Subtotal</td>
+        <td style="text-align:right;">{{ document.totals.subtotal }} {{ document.currency }}</td>
+      </tr>
+      {% if document.totals.tax is defined %}
+      <tr>
+        <td colspan="4" style="text-align:right;">Tax</td>
+        <td style="text-align:right;">{{ document.totals.tax }} {{ document.currency }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td colspan="4" style="text-align:right;">Total</td>
+        <td style="text-align:right;">{{ document.totals.grand_total }} {{ document.currency }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  <div class="footer">
+    {{ document.footer_note | default('This is an example PDF template. Replace with your legal / branding copy.') }}
+  </div>
+</body>
+</html>
