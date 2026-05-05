@@ -88,7 +88,7 @@ def create_app() -> FastAPI:
         return ApiResponse(
             status_code=200,
             Message="Success",
-            Data={"App Name": settings.app_name, "test-name":"after updating github vars "},
+            Data={"App Name": settings.app_name, "test-name":"after updating github vars"},
         )
 
     @app.get("/health/ready")
