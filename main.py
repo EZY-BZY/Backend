@@ -56,8 +56,8 @@ def create_app() -> FastAPI:
         description=f"B-easy Multi-tenant SaaS backend v{settings.version}",
         version=settings.version,
         lifespan=lifespan,
-        docs_url="/beasy-docs-v1",
-        redoc_url="/beasy-redoc-v1",
+        docs_url="/docs",
+        redoc_url="/redoc",
     )
 
     app.add_middleware(
