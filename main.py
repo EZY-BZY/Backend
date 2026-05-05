@@ -56,7 +56,7 @@ def create_app() -> FastAPI:
         description=f"B-easy Multi-tenant SaaS backend v{settings.version}",
         version=settings.version,
         lifespan=lifespan,
-        docs_url="/beasy-docs",
+        docs_url="/docs",
         redoc_url="/redoc",
     )
 
