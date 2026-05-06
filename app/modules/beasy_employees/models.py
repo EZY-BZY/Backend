@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -22,6 +22,29 @@ class BEasyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     email: Mapped[str] = mapped_column(String(256), nullable=False, unique=True, index=True)
     phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    forgot_password_otp_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    forgot_password_otp_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    forgot_password_otp_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    forgot_password_verify_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default="0",
+    )
+    forgot_password_resend_attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        server_default="0",
+    )
+    forgot_password_last_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     account_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     account_status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
     deleted_at: Mapped[datetime | None] = mapped_column(

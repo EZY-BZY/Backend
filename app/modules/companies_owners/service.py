@@ -25,6 +25,9 @@ class CompanyOwnerService:
     def is_phone_registered(self, phone: str) -> bool:
         return self._repo.get_by_phone(phone) is not None
 
+    def get_by_phone(self, phone: str) -> CompanyOwner | None:
+        return self._repo.get_by_phone(phone)
+
     def register(self, data: OwnerRegisterRequest) -> CompanyOwner:
         if self._repo.get_by_phone(data.phone):
             raise ValueError("Phone is already registered.")

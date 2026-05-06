@@ -46,3 +46,43 @@ class ClientLoginResponse(BaseModel):
     expires_in: int
     user: dict
 
+
+class ForgotPasswordRequestOTP(BaseModel):
+    phone: str = Field(..., min_length=1, max_length=64)
+    account_type: ClientAccountType
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _strip_phone(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class ForgotPasswordVerifyOTP(BaseModel):
+    phone: str = Field(..., min_length=1, max_length=64)
+    account_type: ClientAccountType
+    otp: str = Field(..., min_length=1, max_length=32)
+
+    @field_validator("phone", "otp", mode="before")
+    @classmethod
+    def _strip_fields(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class ForgotPasswordChangePassword(BaseModel):
+    phone: str = Field(..., min_length=1, max_length=64)
+    account_type: ClientAccountType
+    new_password: str = Field(..., min_length=6)
+    confirm_password: str = Field(..., min_length=6)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _strip_phone(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class ChangePasswordWhileLoggedIn(BaseModel):
+    old_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6)
+    confirm_password: str = Field(..., min_length=6)
+
+
