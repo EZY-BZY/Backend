@@ -1,8 +1,9 @@
 """Beasy dashboard auth: login and token refresh for Beasy employees."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import AccountStatus, ResponseEnum
 from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
@@ -32,24 +33,35 @@ def dashboard_login(data: DashboardLoginRequest, db: DbSession):
     service = _employee_service(db)
     employee = service.get_by_email(str(data.email))
     if not employee or not verify_password(data.password, employee.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
-    if employee.account_status != "active":
-        raise HTTPException(status_code=403, detail="Account is inactive or suspended")
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=402,
+            details="Invalid email or password",
+        )
+    if employee.account_status != AccountStatus.ACTIVE.value:
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=403,
+            details="Account is inactive or suspended",
+        )
     if employee.deleted_at:
-        raise HTTPException(status_code=403, detail="Account is deactivated")
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=403,
+            details="Account is deactivated",
+        )
 
     settings = get_settings()
     access = create_access_token(employee.id)
     refresh = create_refresh_token(employee.id)
-    return ApiResponse(
-        status_code=200,
-        Message="Login successful",
-        Data=TokenResponse(
+    return json_success(
+        TokenResponse(
             access_token=access,
             refresh_token=refresh,
             token_type="bearer",
             expires_in=settings.access_token_expire_minutes * 60,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -58,28 +70,43 @@ def refresh_tokens(body: RefreshTokenRequest, db: DbSession):
     """Exchange a valid refresh JWT for a new access + refresh pair."""
     payload = decode_token(body.refresh_token, expected_type="refresh")
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=401,
+            details="Invalid or expired refresh token",
+        )
     sub = payload.get("sub")
     if not sub:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=401,
+            details="Invalid refresh token",
+        )
 
     service = _employee_service(db)
     employee = service.get_by_id(sub, include_deleted=False)
     if not employee:
-        raise HTTPException(status_code=401, detail="Invalid or inactive user")
-    if employee.account_status != "active" or employee.deleted_at:
-        raise HTTPException(status_code=401, detail="Invalid or inactive user")
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=401,
+            details="Invalid or inactive user",
+        )
+    if employee.account_status != AccountStatus.ACTIVE.value or employee.deleted_at:
+        return json_error(
+            ResponseEnum.ERROR.value,
+            http_status=401,
+            details="Invalid or inactive user",
+        )
 
     settings = get_settings()
     access = create_access_token(employee.id)
     refresh = create_refresh_token(employee.id)
-    return ApiResponse(
-        status_code=200,
-        Message="Tokens refreshed",
-        Data=TokenResponse(
+    return json_success(
+        TokenResponse(
             access_token=access,
             refresh_token=refresh,
             token_type="bearer",
             expires_in=settings.access_token_expire_minutes * 60,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )

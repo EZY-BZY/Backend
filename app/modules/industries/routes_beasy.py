@@ -2,9 +2,10 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.common.schemas import MessageResponse
 from app.db.session import DbSession
 from app.modules.beasy_employees.dependencies import CurrentEmployeeRequired
@@ -25,10 +26,9 @@ def create_industry(
     current: CurrentEmployeeRequired,
 ):
     row = _svc(db).create(data, actor_id=str(current.id))
-    return ApiResponse(
-        status_code=200,
-        Message="Industry created successfully",
-        Data=IndustryRead.model_validate(row),
+    return json_success(
+        IndustryRead.model_validate(row).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -41,11 +41,10 @@ def update_industry(
 ):
     row = _svc(db).update(str(industry_id), data, actor_id=str(current.id))
     if row is None:
-        raise HTTPException(status_code=404, detail="Industry not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Industry updated successfully",
-        Data=IndustryRead.model_validate(row),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Industry not found")
+    return json_success(
+        IndustryRead.model_validate(row).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -57,9 +56,8 @@ def delete_industry(
 ):
     ok = _svc(db).delete(str(industry_id))
     if not ok:
-        raise HTTPException(status_code=404, detail="Industry not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Industry deleted successfully",
-        Data=MessageResponse(message="Industry deleted successfully"),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Industry not found")
+    return json_success(
+        MessageResponse(message="Industry deleted successfully").model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )

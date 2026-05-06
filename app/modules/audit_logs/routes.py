@@ -2,27 +2,33 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.modules.audit_logs.dependencies import AuditLogServiceDep
 from app.modules.audit_logs.schemas import AuditLogRead
 
 router = APIRouter(prefix="/audit-logs", tags=["audit_logs"])
 
 
-@router.get("", response_model=list[AuditLogRead])
+@router.get("", response_model=ApiResponse[list[AuditLogRead]])
 def list_audit_logs(
     service: AuditLogServiceDep,
     company_id: UUID | None = None,
     action: str | None = None,
     skip: int = 0,
     limit: int = 100,
-) -> list[AuditLogRead]:
+) -> ApiResponse[list[AuditLogRead]]:
     """List audit logs for current company. In production: company_id from auth."""
     if not company_id:
-        raise HTTPException(status_code=400, detail="company_id required (from auth in production)")
+        return json_error(
+            ResponseEnum.FAIL.value,
+            http_status=400,
+            details="company_id required (from auth in production)",
+        )
     logs = service.list_by_company(company_id, skip=skip, limit=limit, action=action)
-    return [
+    items = [
         AuditLogRead(
             id=UUID(log.id),
             actor_user_id=UUID(log.actor_user_id) if log.actor_user_id else None,
@@ -36,3 +42,4 @@ def list_audit_logs(
         )
         for log in logs
     ]
+    return json_success([i.model_dump() for i in items], message=ResponseEnum.SUCCESS.value)

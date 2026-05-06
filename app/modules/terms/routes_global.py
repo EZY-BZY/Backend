@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter
 
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_success
+from app.common.allenums import ResponseEnum
 from app.db.session import DbSession
 from app.modules.terms.enums import TermType
 from app.modules.terms.schemas import TermPublicRead
@@ -29,8 +30,7 @@ def list_active_terms_by_type(
     """
     svc = _service(db)
     terms = svc.list_by_type_ordered(term_type, include_deleted=False)
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=[TermPublicRead.model_validate(t) for t in terms],
+    return json_success(
+        [TermPublicRead.model_validate(t).model_dump() for t in terms],
+        message=ResponseEnum.SUCCESS.value,
     )

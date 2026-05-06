@@ -4,6 +4,8 @@ from fastapi import APIRouter
 
 from app.modules.beasy_auth.routes import router as beasy_auth_router
 from app.modules.beasy_employees.routes import router as employees_router
+from app.modules.countries.routes_beasy import router as countries_beasy_router
+from app.modules.countries.routes_global import router as countries_public_router
 from app.modules.industries.routes_beasy import router as industries_beasy_router
 from app.modules.industries.routes_global import router as industries_public_router
 from app.modules.media.routes_beasy import router as media_beasy_router
@@ -19,6 +21,7 @@ beasy_router = APIRouter(prefix="/beasy")
 beasy_router.include_router(beasy_auth_router)
 beasy_router.include_router(employees_router)
 beasy_router.include_router(media_beasy_router)
+beasy_router.include_router(countries_beasy_router)
 beasy_router.include_router(industries_beasy_router)
 beasy_router.include_router(terms_beasy_router)
 # add routes to the action and ApiDocs
@@ -28,8 +31,10 @@ api_router.include_router(beasy_router)
 # These are the routes that are shared by all Beasy employees and clients
 # example: View Terms
 public_router = APIRouter(prefix="/public", tags=["Public Routes"])
+public_router.include_router(countries_public_router)
 public_router.include_router(industries_public_router)
 public_router.include_router(terms_public_router)
+# add routes to the action and ApiDocs
 api_router.include_router(public_router)
 
 #--------------------------------clients_router--------------------------------
@@ -37,4 +42,4 @@ api_router.include_router(public_router)
 # example: Create account, Business Account, etc.
 clients_router = APIRouter(prefix="/clients", tags=["Clients Routes"])
 # add routes to the action and ApiDocs
-# api_router.include_router(clients_router)
+api_router.include_router(clients_router)

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_token
 from app.db.session import DbSession
+from app.common.allenums import AccountStatus
 from app.modules.beasy_employees.models import BEasyEmployee
 from app.modules.beasy_employees.service import EmployeeService
 
@@ -60,7 +61,7 @@ def get_current_active_employee(
     current: Annotated[BEasyEmployee, Depends(get_current_employee_required)],
 ) -> BEasyEmployee:
     """Require active account (not inactive/suspended)."""
-    if current.account_status not in ("active",):
+    if current.account_status != AccountStatus.ACTIVE.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive or suspended",

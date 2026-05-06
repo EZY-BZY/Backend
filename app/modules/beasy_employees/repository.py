@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.beasy_employees.enums import AccountType
+from app.common.allenums import AccountType
 from app.modules.beasy_employees.models import BEasyEmployee
 
 

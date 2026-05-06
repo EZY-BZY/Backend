@@ -3,10 +3,11 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from app.api.deps import Pagination
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.common.pagination import pagination_pages
 from app.common.schemas import MessageResponse, PaginatedResponse
 from app.db.session import DbSession
@@ -44,11 +45,10 @@ def create_term(
     try:
         term = svc.create(data, actor_id=str(current.id))
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="Term created successfully",
-        Data=TermRead.model_validate(term),
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        TermRead.model_validate(term).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -79,16 +79,15 @@ def list_term_history(
             )
         )
     pages = pagination_pages(total_days, pagination.page_size)
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=PaginatedResponse(
+    return json_success(
+        PaginatedResponse(
             items=items,
             total=total_days,
             page=pagination.page,
             page_size=pagination.page_size,
             pages=pages,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -104,10 +103,9 @@ def list_terms_admin(
     """Full term rows for this type (ids, audit columns). Non-deleted only, ordered by `order`."""
     svc = _service(db)
     terms = svc.list_by_type_ordered(term_type, include_deleted=False)
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=[TermRead.model_validate(t) for t in terms],
+    return json_success(
+        [TermRead.model_validate(t).model_dump() for t in terms],
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -123,11 +121,10 @@ def update_term(
     try:
         term = svc.update(str(term_id), data, actor_id=str(current.id))
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="Term updated successfully",
-        Data=TermRead.model_validate(term),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details=str(e))
+    return json_success(
+        TermRead.model_validate(term).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -142,9 +139,8 @@ def delete_term(
     try:
         svc.soft_delete(str(term_id), actor_id=str(current.id))
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="Term deleted successfully",
-        Data=MessageResponse(message="Term deleted successfully"),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details=str(e))
+    return json_success(
+        MessageResponse(message="Term deleted successfully").model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )

@@ -1,8 +1,9 @@
 """Beasy-only media upload endpoints (chunked saves)."""
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, UploadFile
 
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.core.config import get_settings
 from app.modules.beasy_employees.dependencies import CurrentEmployeeRequired
 from app.modules.media.schemas import MediaBatchItemResponse, MediaUploadResponse
@@ -29,17 +30,16 @@ async def upload_image(
     try:
         result = await save_uploaded_file(file, kind="image", settings=settings, strict_content_type=True)
     except MediaUploadError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="Image uploaded successfully",
-        Data=MediaUploadResponse(
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        MediaUploadResponse(
             file_name=result.file_name,
             file_path=result.file_path,
             file_url=result.file_url,
             file_type=result.file_type,
             file_size=result.file_size,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -56,17 +56,16 @@ async def upload_video(
     try:
         result = await save_uploaded_file(file, kind="video", settings=settings, strict_content_type=True)
     except MediaUploadError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="Video uploaded successfully",
-        Data=MediaUploadResponse(
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        MediaUploadResponse(
             file_name=result.file_name,
             file_path=result.file_path,
             file_url=result.file_url,
             file_type=result.file_type,
             file_size=result.file_size,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -83,17 +82,16 @@ async def upload_general_file(
     try:
         result = await save_uploaded_file(file, kind="file", settings=settings, strict_content_type=True)
     except MediaUploadError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="File uploaded successfully",
-        Data=MediaUploadResponse(
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        MediaUploadResponse(
             file_name=result.file_name,
             file_path=result.file_path,
             file_url=result.file_url,
             file_type=result.file_type,
             file_size=result.file_size,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -111,17 +109,16 @@ async def upload_auto(
     try:
         result = await save_uploaded_file_auto(file, settings=settings, strict_content_type=False)
     except MediaUploadError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    return ApiResponse(
-        status_code=200,
-        Message="File uploaded successfully",
-        Data=MediaUploadResponse(
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        MediaUploadResponse(
             file_name=result.file_name,
             file_path=result.file_path,
             file_url=result.file_url,
             file_type=result.file_type,
             file_size=result.file_size,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -140,11 +137,12 @@ async def upload_batch_auto(
     """
     settings = get_settings()
     if not files:
-        raise HTTPException(status_code=400, detail="No files were uploaded.")
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details="No files were uploaded.")
     if len(files) > settings.max_batch_upload_files:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Too many files. Maximum is {settings.max_batch_upload_files}.",
+        return json_error(
+            ResponseEnum.FAIL.value,
+            http_status=400,
+            details=f"Too many files. Maximum is {settings.max_batch_upload_files}.",
         )
     rows = await save_many_uploads_auto(files, settings=settings)
     items: list[MediaBatchItemResponse] = []
@@ -174,8 +172,4 @@ async def upload_batch_auto(
                 )
             )
     ok = sum(1 for i in items if i.success)
-    return ApiResponse(
-        status_code=200,
-        Message=f"Processed {len(items)} file(s), {ok} succeeded.",
-        Data=items,
-    )
+    return json_success([i.model_dump() for i in items], message=ResponseEnum.SUCCESS.value)

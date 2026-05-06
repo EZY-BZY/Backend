@@ -2,10 +2,11 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from app.api.deps import Pagination
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.common.pagination import pagination_pages
 from app.common.schemas import PaginatedResponse
 from app.db.session import DbSession
@@ -31,17 +32,14 @@ def list_industries(
     svc = _svc(db)
     items, total = svc.list_paginated(page=pagination.page, page_size=pagination.page_size)
     pages = pagination_pages(total, pagination.page_size)
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=PaginatedResponse(
-            items=[IndustryPublicRead.model_validate(r) for r in items],
-            total=total,
-            page=pagination.page,
-            page_size=pagination.page_size,
-            pages=pages,
-        ),
-    )
+    payload = PaginatedResponse(
+        items=[IndustryPublicRead.model_validate(r) for r in items],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        pages=pages,
+    ).model_dump()
+    return json_success(payload, message=ResponseEnum.SUCCESS.value)
 
 
 @router.get(
@@ -51,9 +49,8 @@ def list_industries(
 def get_industry(industry_id: UUID, db: DbSession):
     row = _svc(db).get_by_id(str(industry_id))
     if row is None:
-        raise HTTPException(status_code=404, detail="Industry not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=IndustryPublicRead.model_validate(row),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Industry not found")
+    return json_success(
+        IndustryPublicRead.model_validate(row).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )

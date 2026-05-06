@@ -2,9 +2,10 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
-from app.common.api_response import ApiResponse
+from app.common.api_response import ApiResponse, json_error, json_success
+from app.common.allenums import ResponseEnum
 from app.common.pagination import pagination_pages
 from app.common.schemas import MessageResponse, PaginatedResponse
 from app.modules.beasy_employees.dependencies import CurrentEmployeeRequired
@@ -16,7 +17,7 @@ from app.modules.beasy_employees.schemas import (
 )
 from app.modules.beasy_employees.service import EmployeeService
 from app.db.session import DbSession
-from app.modules.beasy_employees.enums import AccountStatus
+from app.common.allenums import AccountStatus
 
 router = APIRouter(prefix="/employees", tags=["Employees (Beasy)"])
 
@@ -40,11 +41,10 @@ def create_super_user_route(
     try:
         owner = service.create_super_user(data, created_by_id=None)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return ApiResponse(
-        status_code=200,
-        Message="Super user created successfully",
-        Data=_employee_to_read(owner),
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        _employee_to_read(owner).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -62,11 +62,10 @@ def create_member(
     try:
         member = service.create_member(data, created_by_id=current.id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return ApiResponse(
-        status_code=200,
-        Message="Member created successfully",
-        Data=_employee_to_read(member),
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    return json_success(
+        _employee_to_read(member).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -98,16 +97,15 @@ def list_members(
         page_size=page_size,
     )
     pages = pagination_pages(total, page_size)
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=PaginatedResponse(
+    return json_success(
+        PaginatedResponse(
             items=[_employee_to_read(e) for e in items],
             total=total,
             page=page,
             page_size=page_size,
             pages=pages,
-        ),
+        ).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -124,12 +122,8 @@ def get_member(
     service = _get_service(db)
     employee = service.get_by_id(employee_id, include_deleted=False)
     if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Success",
-        Data=_employee_to_read(employee),
-    )
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Employee not found")
+    return json_success(_employee_to_read(employee).model_dump(), message=ResponseEnum.SUCCESS.value)
 
 
 @router.patch(
@@ -147,13 +141,12 @@ def update_member(
     try:
         employee = service.update_member(employee_id, data, updated_by_id=current.id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Member updated successfully",
-        Data=_employee_to_read(employee),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Employee not found")
+    return json_success(
+        _employee_to_read(employee).model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 
@@ -171,13 +164,12 @@ def deactivate_member(
     try:
         employee = service.deactivate_member(employee_id, updated_by_id=current.id)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     if not employee:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    return ApiResponse(
-        status_code=200,
-        Message="Member deactivated successfully",
-        Data=MessageResponse(message="Member deactivated successfully"),
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Employee not found")
+    return json_success(
+        MessageResponse(message="Member deactivated successfully").model_dump(),
+        message=ResponseEnum.SUCCESS.value,
     )
 
 

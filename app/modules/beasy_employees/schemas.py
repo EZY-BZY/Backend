@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.modules.beasy_employees.enums import AccountStatus, AccountType
+from app.common.allenums import AccountStatus, AccountType
 
 
 class TokenResponse(BaseModel):

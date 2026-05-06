@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
-from app.modules.beasy_employees.enums import AccountType
+from app.common.allenums import AccountType, AccountStatus
 from app.modules.beasy_employees.models import BEasyEmployee
 from app.modules.beasy_employees.repository import BEasyEmployeeRepository
 from app.modules.beasy_employees.schemas import BEasyMemberCreate, BEasyMemberUpdate, BEasySuperUserCreate
@@ -34,7 +34,7 @@ class EmployeeService:
             phone=data.phone,
             password_hash=get_password_hash(data.password),
             account_type=AccountType.SUPER_USER.value,
-            account_status="active",
+            account_status=AccountStatus.ACTIVE.value,
             created_by_id=str(created_by_id) if created_by_id else None,
             updated_by_id=str(created_by_id) if created_by_id else None,
         )
