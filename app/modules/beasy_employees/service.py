@@ -49,6 +49,9 @@ class EmployeeService:
     def get_by_email(self, email: str) -> BEasyEmployee | None:
         return self._repo.get_by_email(email)
 
+    def get_by_phone(self, phone: str) -> BEasyEmployee | None:
+        return self._repo.get_by_phone(phone)
+
     def create_member(
         self,
         data: BEasyMemberCreate,

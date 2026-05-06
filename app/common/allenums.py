@@ -27,3 +27,20 @@ class AccountStatus(str, Enum):
     SUSPENDED = "suspended"
     BLOCKED = "blocked"
 
+
+class OwnerAccountStatus(str, Enum):
+    """Company owner account status."""
+
+    ACTIVE = "active"
+    PENDING_VERIFICATION = "pending_verification"
+    SUSPENDED = "suspended"
+    BLOCKED = "blocked"
+    DELETED = "deleted"
+
+
+class ClientAccountType(str, Enum):
+    """Client login account type selector."""
+
+    OWNER = "owner"
+    EMPLOYEE = "employee"
+

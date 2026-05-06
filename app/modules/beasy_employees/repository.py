@@ -33,6 +33,13 @@ class BEasyEmployeeRepository:
             stmt = stmt.where(BEasyEmployee.deleted_at.is_(None))
         return self.db.execute(stmt).scalar_one_or_none()
 
+    def get_by_phone(self, phone: str, exclude_deleted: bool = True) -> BEasyEmployee | None:
+        """Get employee by phone."""
+        stmt = select(BEasyEmployee).where(BEasyEmployee.phone == phone)
+        if exclude_deleted:
+            stmt = stmt.where(BEasyEmployee.deleted_at.is_(None))
+        return self.db.execute(stmt).scalar_one_or_none()
+
     def super_user_exists(self) -> bool:
         """Return True if a Super User already exists (not soft-deleted)."""
         stmt = select(func.count()).select_from(BEasyEmployee).where(

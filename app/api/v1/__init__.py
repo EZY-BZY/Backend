@@ -9,6 +9,9 @@ from app.modules.countries.routes_global import router as countries_public_route
 from app.modules.industries.routes_beasy import router as industries_beasy_router
 from app.modules.industries.routes_global import router as industries_public_router
 from app.modules.media.routes_beasy import router as media_beasy_router
+from app.modules.companies_owners.routes_beasy import router as owners_beasy_router
+from app.modules.companies_owners.routes_clients import router as owners_clients_router
+from app.modules.clients_auth.routes import router as clients_auth_router
 from app.modules.terms.routes_beasy import router as terms_beasy_router
 from app.modules.terms.routes_global import router as terms_public_router
 
@@ -24,6 +27,7 @@ beasy_router.include_router(media_beasy_router)
 beasy_router.include_router(countries_beasy_router)
 beasy_router.include_router(industries_beasy_router)
 beasy_router.include_router(terms_beasy_router)
+beasy_router.include_router(owners_beasy_router)
 # add routes to the action and ApiDocs
 api_router.include_router(beasy_router)
 
@@ -40,6 +44,8 @@ api_router.include_router(public_router)
 #--------------------------------clients_router--------------------------------
 # These are the routes that are only for clients
 # example: Create account, Business Account, etc.
-clients_router = APIRouter(prefix="/clients", tags=["Clients Routes"])
+clients_router = APIRouter(prefix="/clients")
+clients_router.include_router(owners_clients_router)
+clients_router.include_router(clients_auth_router)
 # add routes to the action and ApiDocs
 api_router.include_router(clients_router)

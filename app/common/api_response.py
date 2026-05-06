@@ -2,6 +2,7 @@
 
 from typing import Any, Generic, TypeVar
 
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -47,7 +48,7 @@ def json_success(
     """
     return JSONResponse(
         status_code=http_status,
-        content=api_success(data, message=message, status_code=http_status),
+        content=jsonable_encoder(api_success(data, message=message, status_code=http_status)),
     )
 
 
@@ -63,5 +64,5 @@ def json_error(
     """
     return JSONResponse(
         status_code=http_status,
-        content=api_error(message, status_code=http_status, data=details),
+        content=jsonable_encoder(api_error(message, status_code=http_status, data=details)),
     )
