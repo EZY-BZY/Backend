@@ -23,7 +23,7 @@ from app.modules.fixed_assets.service import FixedAssetService
 
 router = APIRouter(
     prefix="/companies/{company_id}/fixed-assets",
-    tags=["Fixed assets (Beasy)"],
+    tags=["Fixed assets (Beasy) Ignore for now"],
 )
 
 

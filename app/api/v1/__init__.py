@@ -44,6 +44,9 @@ from app.modules.beasy_auth.routes import router as beasy_auth_router
 from app.modules.beasy_employees.routes import router as employees_router
 from app.modules.companies.routes_beasy import router as companies_beasy_router
 from app.modules.companies_owners.routes_beasy import router as owners_beasy_router
+from app.modules.company_contact_info.routes_beasy import (
+    router as company_contact_info_beasy_router,
+)
 from app.modules.company_documents_and_files.routes_beasy import (
     router as company_documents_beasy_router,
 )
@@ -66,6 +69,9 @@ from app.modules.banks_and_wallets.routes_clients import router as banks_wallets
 from app.modules.clients_auth.routes import router as clients_auth_router
 from app.modules.companies.routes_clients import router as companies_clients_router
 from app.modules.companies_owners.routes_clients import router as owners_clients_router
+from app.modules.company_contact_info.routes_clients import (
+    router as company_contact_info_clients_router,
+)
 from app.modules.company_documents_and_files.routes_clients import (
     router as company_documents_clients_router,
 )
@@ -98,6 +104,9 @@ beasy_router.include_router(
 beasy_router.include_router(
     company_documents_beasy_router
 )  # /companies/{company_id}/documents-and-files — list/get + media
+beasy_router.include_router(
+    company_contact_info_beasy_router
+)  # /companies/{company_id}/contact-info — list/get
 api_router.include_router(beasy_router)
 
 # ---------------------------------------------------------------------------
@@ -123,4 +132,5 @@ clients_router.include_router(banks_wallets_clients_router)
 clients_router.include_router(company_financials_clients_router)
 clients_router.include_router(fixed_assets_clients_router)
 clients_router.include_router(company_documents_clients_router)
+clients_router.include_router(company_contact_info_clients_router)
 api_router.include_router(clients_router)

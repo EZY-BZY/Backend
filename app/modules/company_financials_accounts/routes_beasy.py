@@ -29,7 +29,7 @@ from app.modules.company_financials_accounts.service import CompanyFinancialsAcc
 
 router = APIRouter(
     prefix="/companies/{company_id}/financial-accounts",
-    tags=["Company linked accounts (Beasy)"],
+    tags=["Company linked accounts (Beasy) Ignore for now"],
 )
 
 

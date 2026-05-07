@@ -21,7 +21,7 @@ from app.modules.company_documents_and_files.service import CompanyDocumentAndFi
 
 router = APIRouter(
     prefix="/companies/{company_id}/documents-and-files",
-    tags=["Company documents & files (Beasy)"],
+    tags=["Company documents & files (Beasy) Ignore for now"],
 )
 
 

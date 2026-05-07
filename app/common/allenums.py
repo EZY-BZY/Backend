@@ -99,3 +99,16 @@ class DocumentMediaKind(str, Enum):
     VIDEOS = "videos"
     FILES = "files"
 
+
+class CompanyContactChannel(str, Enum):
+    """How to interpret ``value`` for a company contact row (JSON key ``type``)."""
+
+    NUMBER = "number"
+    FACEBOOK = "facebook"
+    INSTAGRAM = "instagram"
+    TIKTOK = "tiktok"
+    YOUTUBE = "youtube"
+    THREADS = "threads"
+    WHATSAPP = "whatsapp"
+    TWITTER_X = "twitter_x"
+
