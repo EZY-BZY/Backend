@@ -59,3 +59,11 @@ class CompanyServiceType(str, Enum):
     PRODUCTS = "products"
     PRODUCTS_AND_SERVICES = "products_and_services"
 
+
+class BankWalletType(str, Enum):
+    """Bank / wallet / app catalog entry type."""
+
+    BANK = "bank"
+    WALLET = "wallet"
+    APP = "app"
+
