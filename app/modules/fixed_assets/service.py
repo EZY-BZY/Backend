@@ -78,6 +78,29 @@ class FixedAssetService:
             raise ValueError("Could not create fixed asset.") from e
         return self._repo.get_by_id(created.id, load_media=True) or created
 
+    def create_with_media_urls(
+        self,
+        company_id: str,
+        owner_id: str,
+        data: FixedAssetCreate,
+        media_pairs: list[tuple[str, str]],
+    ) -> FixedAsset:
+        """Create asset then attach media rows. Rolls back the asset if any media insert fails."""
+        row = self.create(company_id, owner_id, data)
+        try:
+            for media_type, url in media_pairs:
+                self.add_media(
+                    company_id,
+                    row.id,
+                    owner_id,
+                    FixedAssetMediaCreate(media_type=media_type, media_link=url),
+                )
+        except ValueError:
+            self.delete(company_id, row.id, owner_id)
+            raise
+        reloaded = self._repo.get_by_id(row.id, load_media=True)
+        return reloaded or row
+
     def update(
         self,
         company_id: str,
@@ -132,6 +155,22 @@ class FixedAssetService:
         except IntegrityError as e:
             self._db.rollback()
             raise ValueError("Could not add media.") from e
+
+    def add_media_from_url(
+        self,
+        company_id: str,
+        asset_id: str,
+        owner_id: str,
+        *,
+        media_type: str,
+        media_link: str,
+    ) -> AssetMedia | None:
+        return self.add_media(
+            company_id,
+            asset_id,
+            owner_id,
+            FixedAssetMediaCreate(media_type=media_type, media_link=media_link),
+        )
 
     def delete_media(
         self,

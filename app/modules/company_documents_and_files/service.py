@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.common.allenums import DocumentMediaKind
 from app.modules.companies.service import CompanyService
 from app.modules.company_documents_and_files.models import CompanyDocumentAndFile, DocumentMedia
 from app.modules.company_documents_and_files.repository import CompanyDocumentAndFileRepository
@@ -76,6 +77,29 @@ class CompanyDocumentAndFileService:
             self._db.rollback()
             raise ValueError("Could not create document.") from e
         return self._repo.get_by_id(created.id, load_media=True) or created
+
+    def create_with_media_urls(
+        self,
+        company_id: str,
+        owner_id: str,
+        data: CompanyDocumentAndFileCreate,
+        media_pairs: list[tuple[DocumentMediaKind, str]],
+    ) -> CompanyDocumentAndFile:
+        """Create document then attach media. Deletes the document if a media row fails."""
+        row = self.create(company_id, owner_id, data)
+        try:
+            for kind, url in media_pairs:
+                self.add_media(
+                    company_id,
+                    row.id,
+                    owner_id,
+                    DocumentMediaCreate(media_type=kind, media_link=url),
+                )
+        except ValueError:
+            self.delete(company_id, row.id, owner_id)
+            raise
+        reloaded = self._repo.get_by_id(row.id, load_media=True)
+        return reloaded or row
 
     def update(
         self,

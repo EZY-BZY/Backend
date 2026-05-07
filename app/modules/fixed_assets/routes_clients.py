@@ -5,29 +5,31 @@ Clients — **fixed assets** for one company (owner CRUD + media).
 
 **Auth:** Owner JWT; ``company_id`` must belong to the authenticated owner.
 
-**Responses:** Each asset includes ``media`` (from ``assets_media``). JSON uses the key
-``type`` for the asset category (see ``FixedAssetType`` enum values).
+**Create & add-media:** ``multipart/form-data`` — text fields plus optional file parts
+(repeat field name ``files`` for multiple uploads). Stored ``media_type`` is
+``image`` / ``video`` / ``file`` (from auto-detection).
+
+**Other routes:** JSON where applicable (e.g. PATCH). Responses use ``type`` for the asset category.
 """
 
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, File, Form, UploadFile
+from pydantic import ValidationError
 
-from app.common.allenums import ResponseEnum
+from app.common.allenums import FixedAssetType, ResponseEnum
 from app.common.api_response import ApiResponse, json_error, json_success
 from app.common.schemas import MessageResponse
+from app.core.config import get_settings
 from app.db.session import DbSession
 from app.modules.clients_auth.dependencies import CurrentOwnerRequired
-from app.modules.fixed_assets.schemas import (
-    FixedAssetCreate,
-    FixedAssetMediaCreate,
-    FixedAssetMediaRead,
-    FixedAssetRead,
-    FixedAssetUpdate,
-)
+from app.modules.fixed_assets.schemas import FixedAssetCreate, FixedAssetMediaRead, FixedAssetRead, FixedAssetUpdate
 from app.modules.fixed_assets.service import FixedAssetService
+from app.services.media.owner_upload_helpers import fixed_asset_media_type_from_upload
+from app.services.media.upload_service import MediaUploadError, save_uploaded_file_auto
 
 router = APIRouter(
     prefix="/companies/{company_id}/fixed-assets",
@@ -41,6 +43,15 @@ def _svc(db: DbSession) -> FixedAssetService:
 
 def _dump_asset(row) -> dict:
     return FixedAssetRead.model_validate(row).model_dump(by_alias=True, mode="json")
+
+
+async def _upload_pairs_for_fixed_assets(files: list[UploadFile]) -> list[tuple[str, str]]:
+    settings = get_settings()
+    pairs: list[tuple[str, str]] = []
+    for upload in files:
+        result = await save_uploaded_file_auto(upload, settings=settings, strict_content_type=False)
+        pairs.append((fixed_asset_media_type_from_upload(result.file_type), result.file_url))
+    return pairs
 
 
 @router.get(
@@ -66,16 +77,50 @@ def list_fixed_assets(
 @router.post(
     "",
     response_model=ApiResponse[FixedAssetRead],
-    summary="Create a fixed asset",
+    summary="Create a fixed asset (multipart)",
+    description=(
+        "Send ``multipart/form-data``: fields ``asset_name``, ``type``, ``details``, "
+        "``location_description``; optional repeated ``files`` for uploads."
+    ),
 )
-def create_fixed_asset(
+async def create_fixed_asset(
     company_id: UUID,
-    data: FixedAssetCreate,
     db: DbSession,
     current: CurrentOwnerRequired,
+    asset_name: Annotated[str, Form()],
+    type: Annotated[  # noqa: A001
+        FixedAssetType,
+        Form(description="Asset category (same values as JSON API)."),
+    ],
+    details: Annotated[str, Form()],
+    location_description: Annotated[str, Form()],
+    files: Annotated[list[UploadFile] | None, File()] = None,
 ):
+    settings = get_settings()
+    uploads = [f for f in (files or []) if f.filename]
+    if len(uploads) > settings.max_batch_upload_files:
+        return json_error(
+            ResponseEnum.FAIL.value,
+            http_status=400,
+            details=f"Too many files. Maximum is {settings.max_batch_upload_files}.",
+        )
     try:
-        row = _svc(db).create(str(company_id), current["user_id"], data)
+        data = FixedAssetCreate(
+            asset_name=asset_name,
+            asset_type=type,
+            details=details,
+            location_description=location_description,
+        )
+    except ValidationError as e:
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    try:
+        if uploads:
+            media_pairs = await _upload_pairs_for_fixed_assets(uploads)
+            row = _svc(db).create_with_media_urls(str(company_id), current["user_id"], data, media_pairs)
+        else:
+            row = _svc(db).create(str(company_id), current["user_id"], data)
+    except MediaUploadError as e:
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     return json_success(_dump_asset(row), message=ResponseEnum.SUCCESS.value)
@@ -144,17 +189,30 @@ def delete_fixed_asset(
 @router.post(
     "/{asset_id}/media",
     response_model=ApiResponse[FixedAssetMediaRead],
-    summary="Attach media to a fixed asset",
+    summary="Attach media (multipart file)",
+    description="``multipart/form-data`` with a single ``file`` part; type is detected automatically.",
 )
-def add_fixed_asset_media(
+async def add_fixed_asset_media(
     company_id: UUID,
     asset_id: UUID,
-    data: FixedAssetMediaCreate,
     db: DbSession,
     current: CurrentOwnerRequired,
+    file: Annotated[UploadFile, File(..., description="Image, video, or document")],
 ):
+    settings = get_settings()
     try:
-        m = _svc(db).add_media(str(company_id), str(asset_id), current["user_id"], data)
+        result = await save_uploaded_file_auto(file, settings=settings, strict_content_type=False)
+    except MediaUploadError as e:
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    media_type = fixed_asset_media_type_from_upload(result.file_type)
+    try:
+        m = _svc(db).add_media_from_url(
+            str(company_id),
+            str(asset_id),
+            current["user_id"],
+            media_type=media_type,
+            media_link=result.file_url,
+        )
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     if m is None:
