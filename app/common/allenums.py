@@ -67,3 +67,35 @@ class BankWalletType(str, Enum):
     WALLET = "wallet"
     APP = "app"
 
+
+class FixedAssetType(str, Enum):
+    """Fixed asset category for a company."""
+
+    CARS_AND_TRUCKS = "cars_and_trucks"
+    BUILDING_AND_REAL_ESTATE = "building_and_real_estate"
+    MACHINES = "machines"
+    COMPUTERS = "computers"
+    OFFICE_FURNITURE = "office_furniture"
+    OTHER = "other"
+
+
+class CompanyDocumentType(str, Enum):
+    """Company document / file category."""
+
+    DOCUMENT = "document"
+    COMMERCIAL_REGISTRATION = "commercial_registration"
+    TAX_CARD = "tax_card"
+    OPERATION_LICENSE = "operation_license"
+    LEASE_CONTRACT = "lease_contract"
+    INDUSTRIAL_REGISTRATION = "industrial_registration"
+    CONTRACT = "contract"
+    OTHER = "other"
+
+
+class DocumentMediaKind(str, Enum):
+    """Kind of attached media for a company document row."""
+
+    IMAGES = "images"
+    VIDEOS = "videos"
+    FILES = "files"
+

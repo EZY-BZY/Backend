@@ -44,9 +44,13 @@ from app.modules.beasy_auth.routes import router as beasy_auth_router
 from app.modules.beasy_employees.routes import router as employees_router
 from app.modules.companies.routes_beasy import router as companies_beasy_router
 from app.modules.companies_owners.routes_beasy import router as owners_beasy_router
+from app.modules.company_documents_and_files.routes_beasy import (
+    router as company_documents_beasy_router,
+)
 from app.modules.company_financials_accounts.routes_beasy import (
     router as company_financials_beasy_router,
 )
+from app.modules.fixed_assets.routes_beasy import router as fixed_assets_beasy_router
 from app.modules.countries.routes_beasy import router as countries_beasy_router
 from app.modules.industries.routes_beasy import router as industries_beasy_router
 from app.modules.media.routes_beasy import router as media_beasy_router
@@ -62,9 +66,13 @@ from app.modules.banks_and_wallets.routes_clients import router as banks_wallets
 from app.modules.clients_auth.routes import router as clients_auth_router
 from app.modules.companies.routes_clients import router as companies_clients_router
 from app.modules.companies_owners.routes_clients import router as owners_clients_router
+from app.modules.company_documents_and_files.routes_clients import (
+    router as company_documents_clients_router,
+)
 from app.modules.company_financials_accounts.routes_clients import (
     router as company_financials_clients_router,
 )
+from app.modules.fixed_assets.routes_clients import router as fixed_assets_clients_router
 
 api_router = APIRouter()
 
@@ -84,6 +92,12 @@ beasy_router.include_router(banks_wallets_beasy_router)  # CRUD banks & wallets 
 beasy_router.include_router(
     company_financials_beasy_router
 )  # /companies/{company_id}/financial-accounts — list/get by company
+beasy_router.include_router(
+    fixed_assets_beasy_router
+)  # /companies/{company_id}/fixed-assets — list/get + media in payload
+beasy_router.include_router(
+    company_documents_beasy_router
+)  # /companies/{company_id}/documents-and-files — list/get + media
 api_router.include_router(beasy_router)
 
 # ---------------------------------------------------------------------------
@@ -107,4 +121,6 @@ clients_router.include_router(banks_wallets_clients_router)
 # Nested: /companies/{company_id}/financial-accounts — register AFTER companies router
 # so paths stay grouped in OpenAPI; FastAPI matches the longer path correctly.
 clients_router.include_router(company_financials_clients_router)
+clients_router.include_router(fixed_assets_clients_router)
+clients_router.include_router(company_documents_clients_router)
 api_router.include_router(clients_router)
