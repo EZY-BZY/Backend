@@ -12,6 +12,8 @@ from app.modules.media.routes_beasy import router as media_beasy_router
 from app.modules.companies_owners.routes_beasy import router as owners_beasy_router
 from app.modules.companies_owners.routes_clients import router as owners_clients_router
 from app.modules.clients_auth.routes import router as clients_auth_router
+from app.modules.companies.routes_beasy import router as companies_beasy_router
+from app.modules.companies.routes_clients import router as companies_clients_router
 from app.modules.terms.routes_beasy import router as terms_beasy_router
 from app.modules.terms.routes_global import router as terms_public_router
 
@@ -28,6 +30,7 @@ beasy_router.include_router(countries_beasy_router)
 beasy_router.include_router(industries_beasy_router)
 beasy_router.include_router(terms_beasy_router)
 beasy_router.include_router(owners_beasy_router)
+beasy_router.include_router(companies_beasy_router)
 # add routes to the action and ApiDocs
 api_router.include_router(beasy_router)
 
@@ -47,5 +50,6 @@ api_router.include_router(public_router)
 clients_router = APIRouter(prefix="/clients")
 clients_router.include_router(owners_clients_router)
 clients_router.include_router(clients_auth_router)
+clients_router.include_router(companies_clients_router)
 # add routes to the action and ApiDocs
 api_router.include_router(clients_router)

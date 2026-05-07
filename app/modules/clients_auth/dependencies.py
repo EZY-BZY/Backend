@@ -53,3 +53,18 @@ def get_current_client(
 
 CurrentClientRequired = Annotated[CurrentClient, Depends(get_current_client)]
 
+# NOTE: This Todo will be implemented later but ignore for now.
+# TODO: NOT ONLY company owner but also employees can perform this action, when we create the employees module.
+def get_current_owner_required(
+    current: Annotated[CurrentClient, Depends(get_current_client)],
+) -> CurrentClient:
+    if current["account_type"] != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only company owners can perform this action",
+        )
+    return current
+
+
+CurrentOwnerRequired = Annotated[CurrentClient, Depends(get_current_owner_required)]
+

@@ -44,3 +44,18 @@ class ClientAccountType(str, Enum):
     OWNER = "owner"
     EMPLOYEE = "employee"
 
+
+class CompanyStatus(str, Enum):
+    """Company account visibility / lifecycle for client apps."""
+
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+class CompanyServiceType(str, Enum):
+    """What the company offers on the platform."""
+
+    SERVICES = "services"
+    PRODUCTS = "products"
+    PRODUCTS_AND_SERVICES = "products_and_services"
+
