@@ -16,6 +16,7 @@ from app.modules.companies.schemas import (
     CompanyCreate,
     CompanyRead,
     CompanyUpdate,
+    company_read_dict,
 )
 from app.modules.companies.service import CompanyService
 
@@ -40,17 +41,19 @@ def _svc(db: DbSession) -> CompanyService:
         "- `current_balance` (required)\n"
         "- `service` (required): services | products | products_and_services\n"
         "- `tax_number` (optional)\n"
-        "- `image` (optional)\n\n"
+        "- `image` (optional)\n"
+        "- `industry_ids` (optional): list of industry UUIDs this company serves\n\n"
         "Show flags default to false; use `PUT .../change-statuses` to update them."
     ),
 )
 def create_company(db: DbSession, current: CurrentOwnerRequired, data: CompanyCreate):
+    svc = _svc(db)
     try:
-        row = _svc(db).create_company(current["user_id"], data)
+        row = svc.create_company(current["user_id"], data)
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     return json_success(
-        CompanyRead.model_validate(row).model_dump(),
+        company_read_dict(row, svc.industry_ids_for_company(str(row.id))),
         message=ResponseEnum.SUCCESS.value,
     )
 
@@ -61,11 +64,12 @@ def create_company(db: DbSession, current: CurrentOwnerRequired, data: CompanyCr
     summary="Get company details",
 )
 def get_company(company_id: UUID, db: DbSession, current: CurrentOwnerRequired):
-    row = _svc(db).get_company(str(company_id), current["user_id"])
+    svc = _svc(db)
+    row = svc.get_company(str(company_id), current["user_id"])
     if row is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
     return json_success(
-        CompanyRead.model_validate(row).model_dump(),
+        company_read_dict(row, svc.industry_ids_for_company(str(company_id))),
         message=ResponseEnum.SUCCESS.value,
     )
 
@@ -81,14 +85,15 @@ def update_company(
     current: CurrentOwnerRequired,
     data: CompanyUpdate,
 ):
+    svc = _svc(db)
     try:
-        row = _svc(db).update_company(str(company_id), current["user_id"], data)
+        row = svc.update_company(str(company_id), current["user_id"], data)
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     if row is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
     return json_success(
-        CompanyRead.model_validate(row).model_dump(),
+        company_read_dict(row, svc.industry_ids_for_company(str(company_id))),
         message=ResponseEnum.SUCCESS.value,
     )
 
@@ -127,10 +132,11 @@ def change_company_visibility(
     current: CurrentOwnerRequired,
     body: CompanyChangeVisibilityBody,
 ):
-    row = _svc(db).change_company_visibility(str(company_id), current["user_id"], body)
+    svc = _svc(db)
+    row = svc.change_company_visibility(str(company_id), current["user_id"], body)
     if row is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
     return json_success(
-        CompanyRead.model_validate(row).model_dump(),
+        company_read_dict(row, svc.industry_ids_for_company(str(company_id))),
         message=ResponseEnum.SUCCESS.value,
     )

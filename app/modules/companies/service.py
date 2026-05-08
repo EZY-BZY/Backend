@@ -13,12 +13,27 @@ from app.modules.companies.schemas import (
     CompanyCreate,
     CompanyUpdate,
 )
+from app.modules.industries.repository import IndustryRepository
 
 
 class CompanyService:
     def __init__(self, db: Session) -> None:
         self._db = db
         self._repo = CompanyRepository(db)
+        self._industries = IndustryRepository(db)
+
+    def _ensure_industries_exist(self, industry_ids: list[str]) -> None:
+        if not industry_ids:
+            return
+        n = self._industries.count_existing_ids(industry_ids)
+        if n != len(industry_ids):
+            raise ValueError("One or more industry ids are invalid.")
+
+    def industry_ids_for_company(self, company_id: str) -> list[str]:
+        return self._repo.get_industry_ids_for_company(company_id)
+
+    def industry_ids_by_company_ids(self, company_ids: list[str]) -> dict[str, list[str]]:
+        return self._repo.list_industry_ids_by_company_ids(company_ids)
 
     def list_companies(self) -> list[Company]:
         return self._repo.list_companies()
@@ -33,6 +48,8 @@ class CompanyService:
         return row
 
     def create_company(self, owner_id: str, data: CompanyCreate) -> Company:
+        unique_ids = [str(x) for x in data.industry_ids]
+        self._ensure_industries_exist(unique_ids)
         row = Company(
             owner_id=owner_id,
             company_name_ar=data.company_name_ar,
@@ -50,7 +67,7 @@ class CompanyService:
             tax_number=data.tax_number,
         )
         try:
-            return self._repo.create_company(row)
+            return self._repo.create_company(row, unique_ids)
         except IntegrityError as e:
             self._db.rollback()
             raise ValueError("Could not create company.") from e
@@ -60,6 +77,11 @@ class CompanyService:
         if row is None:
             return None
         payload = data.model_dump(exclude_unset=True)
+        if "industry_ids" in payload and payload["industry_ids"] is not None:
+            unique_ids = [str(x) for x in payload["industry_ids"]]
+            self._ensure_industries_exist(unique_ids)
+            self._repo.replace_company_industries(company_id, unique_ids)
+            del payload["industry_ids"]
         if not payload:
             return row
         if "service" in payload and payload["service"] is not None:

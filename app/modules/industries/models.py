@@ -1,8 +1,10 @@
 """Industry ORM model."""
 
+from __future__ import annotations
+
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
@@ -26,4 +28,9 @@ class Industry(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         UUID(as_uuid=False),
         ForeignKey("beasy_employees.id", ondelete="SET NULL"),
         nullable=True,
+    )
+
+    company_industry_links: Mapped[list["CompanyIndustry"]] = relationship(
+        "CompanyIndustry",
+        back_populates="industry",
     )

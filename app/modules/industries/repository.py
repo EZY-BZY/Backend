@@ -13,6 +13,13 @@ class IndustryRepository:
     def get_by_id(self, industry_id: str) -> Industry | None:
         return self.db.get(Industry, industry_id)
 
+    def count_existing_ids(self, ids: list[str]) -> int:
+        """How many of the given ids exist in ``industries`` (after deduplication by caller)."""
+        if not ids:
+            return 0
+        stmt = select(func.count()).select_from(Industry).where(Industry.id.in_(ids))
+        return int(self.db.execute(stmt).scalar_one())
+
     def create(self, row: Industry) -> Industry:
         self.db.add(row)
         self.db.commit()

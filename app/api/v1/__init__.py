@@ -39,6 +39,7 @@ ones if you ever add overlapping routes in the same router.
 from fastapi import APIRouter
 
 # --- Beasy (internal / dashboard) ---
+from app.modules.app_permissions.routes_beasy import router as app_permissions_beasy_router
 from app.modules.banks_and_wallets.routes_beasy import router as banks_wallets_beasy_router
 from app.modules.beasy_auth.routes import router as beasy_auth_router
 from app.modules.beasy_employees.routes import router as employees_router
@@ -65,6 +66,7 @@ from app.modules.industries.routes_global import router as industries_public_rou
 from app.modules.terms.routes_global import router as terms_public_router
 
 # --- Clients (mobile / owner app) ---
+from app.modules.app_permissions.routes_clients import router as app_permissions_clients_router
 from app.modules.banks_and_wallets.routes_clients import router as banks_wallets_clients_router
 from app.modules.clients_auth.routes import router as clients_auth_router
 from app.modules.companies.routes_clients import router as companies_clients_router
@@ -91,6 +93,7 @@ beasy_router.include_router(employees_router)
 beasy_router.include_router(media_beasy_router)
 beasy_router.include_router(countries_beasy_router)
 beasy_router.include_router(industries_beasy_router)
+beasy_router.include_router(app_permissions_beasy_router)
 beasy_router.include_router(terms_beasy_router)
 beasy_router.include_router(owners_beasy_router)
 beasy_router.include_router(companies_beasy_router)  # list all companies
@@ -127,6 +130,7 @@ clients_router.include_router(clients_auth_router)  # login, forgot password, ch
 clients_router.include_router(companies_clients_router)  # /companies — owner JWT
 # Read-only catalog; no Bearer required. Active rows only; response omits ``is_active`` (Beasy-only).
 clients_router.include_router(banks_wallets_clients_router)
+clients_router.include_router(app_permissions_clients_router)
 # Nested: /companies/{company_id}/financial-accounts — register AFTER companies router
 # so paths stay grouped in OpenAPI; FastAPI matches the longer path correctly.
 clients_router.include_router(company_financials_clients_router)

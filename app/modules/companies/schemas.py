@@ -1,11 +1,17 @@
 """Pydantic schemas for companies."""
 
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.common.allenums import CompanyServiceType, CompanyStatus
+
+if TYPE_CHECKING:
+    from app.modules.companies.models import Company
 
 
 class CompanyCreate(BaseModel):
@@ -22,6 +28,15 @@ class CompanyCreate(BaseModel):
     )
     service: CompanyServiceType
     tax_number: str | None = Field(None, max_length=128)
+    industry_ids: list[UUID] = Field(
+        default_factory=list,
+        description="Industries this company serves (must exist in the industries catalog).",
+    )
+
+    @field_validator("industry_ids", mode="after")
+    @classmethod
+    def _dedupe_industry_ids(cls, v: list[UUID]) -> list[UUID]:
+        return list(dict.fromkeys(v))
 
     @field_validator("company_name_ar", mode="before")
     @classmethod
@@ -65,6 +80,17 @@ class CompanyUpdate(BaseModel):
     service: CompanyServiceType | None = None
     tax_number: str | None = Field(None, max_length=128)
     status: CompanyStatus | None = None
+    industry_ids: list[UUID] | None = Field(
+        None,
+        description="If set, replaces the full list of industries for this company.",
+    )
+
+    @field_validator("industry_ids", mode="after")
+    @classmethod
+    def _dedupe_industry_ids_u(cls, v: list[UUID] | None) -> list[UUID] | None:
+        if v is None:
+            return None
+        return list(dict.fromkeys(v))
 
     @field_validator("company_name_ar", mode="before")
     @classmethod
@@ -124,5 +150,13 @@ class CompanyRead(BaseModel):
     service: CompanyServiceType
     current_balance: float 
     tax_number: str | None
+    industry_ids: list[UUID] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+
+
+def company_read_dict(company: Company, industry_ids: list[str]) -> dict:
+    """Build API payload including ``industry_ids`` (stored in ``company_industries``)."""
+    d = CompanyRead.model_validate(company).model_dump()
+    d["industry_ids"] = [UUID(x) for x in industry_ids]
+    return d

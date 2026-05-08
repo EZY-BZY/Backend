@@ -1,12 +1,34 @@
 """Company ORM model (owned by a company owner)."""
 
+from __future__ import annotations
+
 from decimal import Decimal
 
 from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class CompanyIndustry(Base):
+    """Many-to-many: which industries a company serves."""
+
+    __tablename__ = "company_industries"
+
+    company_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("companies.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    industry_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("industries.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+
+    company: Mapped["Company"] = relationship("Company", back_populates="industry_links")
+    industry: Mapped["Industry"] = relationship("Industry", back_populates="company_industry_links")
 
 
 class Company(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -49,6 +71,12 @@ class Company(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
 
     tax_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+
+    industry_links: Mapped[list["CompanyIndustry"]] = relationship(
+        "CompanyIndustry",
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         CheckConstraint(

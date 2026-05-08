@@ -8,7 +8,7 @@ from app.common.allenums import ResponseEnum
 from app.common.api_response import ApiResponse, json_success
 from app.db.session import DbSession
 from app.modules.beasy_employees.dependencies import CurrentEmployeeRequired
-from app.modules.companies.schemas import CompanyRead
+from app.modules.companies.schemas import CompanyRead, company_read_dict
 from app.modules.companies.service import CompanyService
 
 router = APIRouter(prefix="/companies", tags=["Companies (Beasy)"])
@@ -25,8 +25,10 @@ def _svc(db: DbSession) -> CompanyService:
     description="Returns every company profile in the system, newest first.",
 )
 def list_companies(db: DbSession, _: CurrentEmployeeRequired):
-    items = _svc(db).list_companies()
+    svc = _svc(db)
+    items = svc.list_companies()
+    by_c = svc.industry_ids_by_company_ids([str(c.id) for c in items])
     return json_success(
-        [CompanyRead.model_validate(c).model_dump() for c in items],
+        [company_read_dict(c, by_c.get(str(c.id), [])) for c in items],
         message=ResponseEnum.SUCCESS.value,
     )
