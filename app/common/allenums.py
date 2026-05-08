@@ -100,6 +100,27 @@ class DocumentMediaKind(str, Enum):
     FILES = "files"
 
 
+class CompanyBranchType(str, Enum):
+    """Physical site kind for a company branch."""
+
+    FACTORY = "factory"
+    WAREHOUSE = "warehouse"
+    SHOWROOM = "showroom"
+    OFFICE = "office"
+
+
+class Weekday(str, Enum):
+    """Day of week for branch working hours (calendar names)."""
+
+    SATURDAY = "saturday"
+    SUNDAY = "sunday"
+    MONDAY = "monday"
+    TUESDAY = "tuesday"
+    WEDNESDAY = "wednesday"
+    THURSDAY = "thursday"
+    FRIDAY = "friday"
+
+
 class CompanyContactChannel(str, Enum):
     """How to interpret ``value`` for a company contact row (JSON key ``type``)."""
 

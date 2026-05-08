@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -21,6 +21,7 @@ AccountTypeLiteral = Literal["owner", "employee"]
 class CurrentClient(TypedDict):
     account_type: AccountTypeLiteral
     user_id: str
+    company_id: NotRequired[str | None]
 
 
 def get_current_client(
@@ -48,7 +49,11 @@ def get_current_client(
         if not row:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token user")
 
-    return {"account_type": account_type, "user_id": str(sub)}
+    return {
+        "account_type": account_type,
+        "user_id": str(sub),
+        "company_id": payload.get("company_id"),
+    }
 
 
 CurrentClientRequired = Annotated[CurrentClient, Depends(get_current_client)]

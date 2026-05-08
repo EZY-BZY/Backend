@@ -9,6 +9,11 @@ from app.modules.app_permissions.models import AppPermission, AppPermissionHisto
 from app.modules.banks_and_wallets.models import BankAndWallet  # noqa: F401
 from app.modules.beasy_employees.models import BEasyEmployee  # noqa: F401
 from app.modules.companies.models import Company, CompanyIndustry  # noqa: F401
+from app.modules.company_branches.models import (  # noqa: F401
+    CompanyBranch,
+    CompanyBranchContact,
+    CompanyBranchWorkingHours,
+)
 from app.modules.company_contact_info.models import CompanyContactInfo  # noqa: F401
 from app.modules.company_documents_and_files.models import CompanyDocumentAndFile, DocumentMedia  # noqa: F401
 from app.modules.company_financials_accounts.models import CompanyFinancialsAccount  # noqa: F401
