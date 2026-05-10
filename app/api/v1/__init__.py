@@ -49,6 +49,7 @@ from app.modules.company_branches.routes_beasy import router as company_branches
 from app.modules.company_contact_info.routes_beasy import (
     router as company_contact_info_beasy_router,
 )
+from app.modules.company_employees.routes_beasy import router as company_employees_beasy_router
 from app.modules.company_documents_and_files.routes_beasy import (
     router as company_documents_beasy_router,
 )
@@ -76,6 +77,7 @@ from app.modules.company_branches.routes_clients import router as company_branch
 from app.modules.company_contact_info.routes_clients import (
     router as company_contact_info_clients_router,
 )
+from app.modules.company_employees.routes_clients import router as company_employees_clients_router
 from app.modules.company_documents_and_files.routes_clients import (
     router as company_documents_clients_router,
 )
@@ -113,6 +115,7 @@ beasy_router.include_router(
     company_contact_info_beasy_router
 )  # /companies/{company_id}/contact-info — list/get
 beasy_router.include_router(company_branches_beasy_router)  # /company-branches — list/get + filters
+beasy_router.include_router(company_employees_beasy_router)  # /company-employees — list/get + filters
 api_router.include_router(beasy_router)
 
 # ---------------------------------------------------------------------------
@@ -141,4 +144,5 @@ clients_router.include_router(fixed_assets_clients_router)
 clients_router.include_router(company_documents_clients_router)
 clients_router.include_router(company_contact_info_clients_router)
 clients_router.include_router(company_branches_clients_router)  # /companies/{id}/branches
+clients_router.include_router(company_employees_clients_router)  # /companies/{id}/employees
 api_router.include_router(clients_router)

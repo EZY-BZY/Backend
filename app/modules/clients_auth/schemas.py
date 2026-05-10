@@ -39,6 +39,19 @@ class EmployeeBasicRead(BaseModel):
     account_type: str
 
 
+class CompanyEmployeeBasicRead(BaseModel):
+    """Returned from company-employee login."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    email: str | None
+    company_id: UUID
+    role: str
+    account_type: str = "company_employee"
+
+
 class ClientLoginResponse(BaseModel):
     access_token: str
     refresh_token: str

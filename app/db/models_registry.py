@@ -14,6 +14,11 @@ from app.modules.company_branches.models import (  # noqa: F401
     CompanyBranchContact,
     CompanyBranchWorkingHours,
 )
+from app.modules.company_employees.models import (  # noqa: F401
+    CompanyEmployee,
+    CompanyEmployeePhone,
+    EmployeeAppPermission,
+)
 from app.modules.company_contact_info.models import CompanyContactInfo  # noqa: F401
 from app.modules.company_documents_and_files.models import CompanyDocumentAndFile, DocumentMedia  # noqa: F401
 from app.modules.company_financials_accounts.models import CompanyFinancialsAccount  # noqa: F401

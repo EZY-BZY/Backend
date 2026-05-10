@@ -43,6 +43,7 @@ class ClientAccountType(str, Enum):
 
     OWNER = "owner"
     EMPLOYEE = "employee"
+    COMPANY_EMPLOYEE = "company_employee"
 
 
 class CompanyStatus(str, Enum):
@@ -107,6 +108,31 @@ class CompanyBranchType(str, Enum):
     WAREHOUSE = "warehouse"
     SHOWROOM = "showroom"
     OFFICE = "office"
+
+
+class CompanySalarySystem(str, Enum):
+    """How salary is quoted for a company employee."""
+
+    MONTHLY = "monthly"
+    WEEKLY = "weekly"
+    YEARLY = "yearly"
+    DAILY = "daily"
+
+
+class CompanyEmployeeRole(str, Enum):
+    """Role of an employee within their company (access / responsibilities)."""
+
+    ADMIN = "admin"
+    EMPLOYEE = "employee"
+    INVENTORY_MANAGER = "inventory_manager"
+    FINANCE = "finance"
+
+
+class CompanyAuditActorType(str, Enum):
+    """Who performed an audited action for company-scoped entities."""
+
+    COMPANY_OWNER = "company_owner"
+    EMPLOYEE = "employee"
 
 
 class Weekday(str, Enum):

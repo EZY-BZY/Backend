@@ -15,13 +15,14 @@ from app.modules.companies_owners.service import CompanyOwnerService
 http_bearer = HTTPBearer(auto_error=False)
 
 
-AccountTypeLiteral = Literal["owner", "employee"]
+AccountTypeLiteral = Literal["owner", "employee", "company_employee"]
 
 
 class CurrentClient(TypedDict):
     account_type: AccountTypeLiteral
     user_id: str
     company_id: NotRequired[str | None]
+    company_employee_role: NotRequired[str | None]
 
 
 def get_current_client(
@@ -36,30 +37,46 @@ def get_current_client(
 
     sub = payload.get("sub")
     account_type = payload.get("account_type")
-    if not sub or account_type not in ("owner", "employee"):
+    if not sub or account_type not in ("owner", "employee", "company_employee"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
-    # Ensure subject exists.
     if account_type == "owner":
         row = CompanyOwnerService(db).get_by_id(str(sub))
         if not row:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token user")
-    else:
+        return {
+            "account_type": "owner",
+            "user_id": str(sub),
+            "company_id": payload.get("company_id"),
+        }
+
+    if account_type == "employee":
         row = EmployeeService(db).get_by_id(str(sub), include_deleted=False)
         if not row:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token user")
+        return {
+            "account_type": "employee",
+            "user_id": str(sub),
+            "company_id": payload.get("company_id"),
+        }
 
+    # company_employee — subject is ``company_employees.id`` (avoid import cycle with lazy load).
+    from app.modules.company_employees.repository import CompanyEmployeeRepository
+
+    cerow = CompanyEmployeeRepository(db).get_employee(str(sub), load_children=False)
+    if not cerow or not cerow.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token user")
     return {
-        "account_type": account_type,
+        "account_type": "company_employee",
         "user_id": str(sub),
-        "company_id": payload.get("company_id"),
+        "company_id": str(cerow.company_id),
+        "company_employee_role": cerow.role,
     }
 
 
 CurrentClientRequired = Annotated[CurrentClient, Depends(get_current_client)]
 
-# NOTE: This Todo will be implemented later but ignore for now.
-# TODO: NOT ONLY company owner but also employees can perform this action, when we create the employees module.
+
 def get_current_owner_required(
     current: Annotated[CurrentClient, Depends(get_current_client)],
 ) -> CurrentClient:
@@ -72,4 +89,3 @@ def get_current_owner_required(
 
 
 CurrentOwnerRequired = Annotated[CurrentClient, Depends(get_current_owner_required)]
-
