@@ -22,6 +22,49 @@ from app.modules.companies_owners.schemas import (
 
 logger = logging.getLogger(__name__)
 
+_PG_UNIQUE_VIOLATION = "23505"
+_PG_NOT_NULL_VIOLATION = "23502"
+_PG_CHECK_VIOLATION = "23514"
+
+
+def _register_integrity_user_message(exc: IntegrityError) -> str:
+    """Map PostgreSQL integrity errors to a safe, actionable API message."""
+    orig = getattr(exc, "orig", None)
+    if orig is None:
+        return "Could not register owner (duplicate or constraint violation)."
+
+    pgcode = getattr(orig, "pgcode", None)
+    diag = getattr(orig, "diag", None)
+    constraint = getattr(diag, "constraint_name", None) if diag else None
+    column = getattr(diag, "column_name", None) if diag else None
+    detail_lower = str(orig).lower()
+
+    if pgcode == _PG_UNIQUE_VIOLATION or "unique constraint" in detail_lower:
+        c = (constraint or "").lower()
+        if "phone" in c or "uq_companies_owners_phone" in detail_lower:
+            return "Phone is already registered."
+        return "Could not register owner (duplicate or constraint violation)."
+
+    if pgcode == _PG_NOT_NULL_VIOLATION or "not null violation" in detail_lower:
+        logger.warning("Owner register NOT NULL violation column=%s", column)
+        if column and "forgot_password" in column:
+            return (
+                "Registration failed: database is missing column defaults. "
+                "Run `alembic upgrade head` on the server (migration 029+)."
+            )
+        return (
+            f"Registration failed (required field missing{f': {column}' if column else ''}). "
+            "Ensure the database is migrated to the latest revision."
+        )
+
+    if pgcode == _PG_CHECK_VIOLATION:
+        return "Registration failed (invalid data for new account)."
+
+    if "uq_companies_owners_phone" in detail_lower or "ix_companies_owners_phone" in detail_lower:
+        return "Phone is already registered."
+
+    return "Could not register owner (duplicate or constraint violation)."
+
 
 class CompanyOwnerService:
     def __init__(self, db: Session) -> None:
@@ -59,13 +102,15 @@ class CompanyOwnerService:
             last_accepted_terms_date=created_at,
             is_verified_phone=False,
             account_status=OwnerAccountStatus.PENDING_VERIFICATION.value,
+            forgot_password_verify_attempts=0,
+            forgot_password_resend_attempts=0,
         )
         try:
             return self._repo.create(row)
         except IntegrityError as e:
             self._db.rollback()
             logger.warning("Owner register failed: %s", e.orig)
-            raise ValueError("Could not register owner (duplicate or constraint violation).") from e
+            raise ValueError(_register_integrity_user_message(e)) from e
 
     def verify_phone(self, *, phone: str, otp: str) -> CompanyOwner:
         row = self._repo.get_by_phone(phone)
