@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.allenums import OwnerAccountStatus
+from app.db.base import utc_now
 from app.core.config import get_settings
 from app.core.security import get_password_hash, verify_password
 from app.modules.companies_owners.models import CompanyOwner
@@ -17,6 +19,8 @@ from app.modules.companies_owners.schemas import (
     OwnerRegisterRequest,
     OwnersListFilters,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CompanyOwnerService:
@@ -44,6 +48,7 @@ class CompanyOwnerService:
         # OTP is fixed for now, later we will use a more secure OTP generation method.
         # TODO: Implement a more secure OTP generation method, and Integrate with OTP service.
         otp_code = self._new_owner_otp_plain()
+        created_at = utc_now()
 
         row = CompanyOwner(
             name=data.name,
@@ -51,6 +56,7 @@ class CompanyOwnerService:
             email=str(data.email) if data.email is not None else None,
             password_hash=get_password_hash(data.password),
             otp_hash=get_password_hash(otp_code),
+            last_accepted_terms_date=created_at,
             is_verified_phone=False,
             account_status=OwnerAccountStatus.PENDING_VERIFICATION.value,
         )
@@ -58,6 +64,7 @@ class CompanyOwnerService:
             return self._repo.create(row)
         except IntegrityError as e:
             self._db.rollback()
+            logger.warning("Owner register failed: %s", e.orig)
             raise ValueError("Could not register owner (duplicate or constraint violation).") from e
 
     def verify_phone(self, *, phone: str, otp: str) -> CompanyOwner:
@@ -94,28 +101,27 @@ class CompanyOwnerService:
             return "000000"
         return f"{secrets.randbelow(1_000_000):06d}"
 
-    def _issue_otp_on_row(self, row: CompanyOwner) -> str:
+    def _issue_otp_on_row(self, row: CompanyOwner) -> None:
         self._ensure_can_issue_otp(row)
         otp_plain = self._new_owner_otp_plain()
         row.otp_hash = get_password_hash(otp_plain)
         self._repo.update(row)
-        return otp_plain
 
-    def resend_otp_for_owner_id(self, owner_id: str) -> str:
-        """Bearer token path: subject is companies_owners.id."""
+    def resend_otp_for_owner_id(self, owner_id: str) -> None:
+        """Bearer token path: subject is companies_owners.id. OTP is stored hashed only (not returned)."""
         row = self._repo.get_by_id(owner_id)
         if not row:
             raise ValueError("Owner not found.")
-        return self._issue_otp_on_row(row)
+        self._issue_otp_on_row(row)
 
-    def resend_otp_with_password(self, phone: str, password: str) -> str:
-        """Phone + password path (e.g. before login / without token)."""
+    def resend_otp_with_password(self, phone: str, password: str) -> None:
+        """Phone + password path (e.g. before login / without token). OTP is stored hashed only (not returned)."""
         row = self._repo.get_by_phone(phone.strip())
         if not row:
             raise ValueError("Owner not found.")
         if not verify_password(password, row.password_hash):
             raise ValueError("Invalid phone or password.")
-        return self._issue_otp_on_row(row)
+        self._issue_otp_on_row(row)
 
     def authenticate_owner(self, *, phone: str, password: str) -> CompanyOwner:
         row = self._repo.get_by_phone(phone)

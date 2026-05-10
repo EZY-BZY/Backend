@@ -11,7 +11,6 @@ from app.modules.clients_auth.dependencies import CurrentOwnerRequired
 from app.modules.companies_owners.schemas import (
     CompanyOwnerPublicRead,
     OwnerCheckPhoneResponse,
-    OwnerOtpCodeResponse,
     OwnerRegisterRequest,
     OwnerResendOtpWithPasswordRequest,
     OwnerVerifyPhoneRequest,
@@ -40,8 +39,9 @@ def _svc(db: DbSession) -> CompanyOwnerService:
         "- `registered=false` → phone is free: continue with `POST /owners/register`.\n"
         "- `registered=true` and `is_verified_phone=false` → owner exists but phone not verified yet: "
         "call `POST /owners/resend-phone-otp` (Bearer owner token) or "
-        "`POST /owners/resend-phone-otp/with-password` (phone + password in JSON) to get a new OTP in the "
-        "response, then `POST /owners/verify-phone` with the code; do not register again.\n"
+        "`POST /owners/resend-phone-otp/with-password` (phone + password in JSON) to issue a new OTP "
+        "(delivered via your SMS/channel integration; not returned in the API), then `POST /owners/verify-phone` "
+        "with the code; do not register again.\n"
         "- `registered=true` and `is_verified_phone=true` → use `POST /clients/auth/login` with "
         "`account_type=owner` (login is rejected until the phone is verified).\n\n"
         "Unauthenticated; no side effects on the database."
@@ -83,47 +83,41 @@ def register_owner(data: OwnerRegisterRequest, db: DbSession):
 
 @router.post(
     "/resend-phone-otp/with-password",
-    response_model=ApiResponse[OwnerOtpCodeResponse],
+    response_model=ApiResponse[dict],
     summary="Refresh owner OTP (phone + password)",
     description=(
         "For flows **without** a Bearer token (e.g. after register, before login).\n\n"
-        "Body: `phone` and `password` (same as registration). On success, **Data** is only `{ \"otp\": \"...\" }` "
-        "(non-production environments may return a fixed code for testing).\n\n"
-        "The code is hashed and stored as ``otp_hash`` on the owner; ``is_verified_phone`` is unchanged.\n\n"
+        "Body: `phone` and `password` (same as registration). Generates a new OTP, hashes it, and stores it as "
+        "``otp_hash``. The plain OTP is **not** returned (integrate SMS or another channel to deliver it).\n\n"
+        "``is_verified_phone`` is unchanged.\n\n"
         "Refused if credentials are wrong, the phone is unknown, or the account is suspended, blocked, or deleted."
     ),
 )
 def resend_owner_phone_otp_with_password(data: OwnerResendOtpWithPasswordRequest, db: DbSession):
     try:
-        otp = _svc(db).resend_otp_with_password(data.phone, data.password)
+        _svc(db).resend_otp_with_password(data.phone, data.password)
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
-    return json_success(
-        OwnerOtpCodeResponse(otp=otp).model_dump(),
-        message=ResponseEnum.SUCCESS.value,
-    )
+    return json_success({}, message=ResponseEnum.SUCCESS.value)
 
 
 @router.post(
     "/resend-phone-otp",
-    response_model=ApiResponse[OwnerOtpCodeResponse],
+    response_model=ApiResponse[dict],
     summary="Refresh owner OTP (Bearer)",
     description=(
         "Authenticated **company owner** access token. Subject must be ``companies_owners.id``.\n\n"
-        "On success, **Data** is only `{ \"otp\": \"...\" }` (non-production may use a fixed test code).\n\n"
-        "The code is hashed and stored as ``otp_hash``; profile fields are unchanged.\n\n"
+        "Generates a new OTP, hashes it, and stores it as ``otp_hash``. The plain OTP is **not** returned.\n\n"
+        "Profile fields are unchanged.\n\n"
         "Refused if the account is suspended, blocked, or deleted."
     ),
 )
 def resend_owner_phone_otp(current: CurrentOwnerRequired, db: DbSession):
     try:
-        otp = _svc(db).resend_otp_for_owner_id(current["user_id"])
+        _svc(db).resend_otp_for_owner_id(current["user_id"])
     except ValueError as e:
         return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
-    return json_success(
-        OwnerOtpCodeResponse(otp=otp).model_dump(),
-        message=ResponseEnum.SUCCESS.value,
-    )
+    return json_success({}, message=ResponseEnum.SUCCESS.value)
 
 
 @router.post(

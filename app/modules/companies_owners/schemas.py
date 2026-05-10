@@ -39,7 +39,7 @@ class OwnerVerifyPhoneRequest(BaseModel):
 
 
 class OwnerResendOtpWithPasswordRequest(BaseModel):
-    """Unauthenticated: prove ownership with phone + password, receive a new OTP in the response."""
+    """Unauthenticated: prove ownership with phone + password; a new OTP is issued (delivered out of band, not in the API body)."""
 
     phone: str = Field(..., min_length=1, max_length=64)
     password: str = Field(..., min_length=1)
@@ -48,12 +48,6 @@ class OwnerResendOtpWithPasswordRequest(BaseModel):
     @classmethod
     def _strip_phone(cls, v: str) -> str:
         return str(v).strip()
-
-
-class OwnerOtpCodeResponse(BaseModel):
-    """Success payload for resend-OTP routes: only the issued code (also stored hashed on the owner)."""
-
-    otp: str
 
 
 class OwnerStatusUpdateRequest(BaseModel):
