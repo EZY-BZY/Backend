@@ -31,7 +31,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
     """Map PostgreSQL integrity errors to a safe, actionable API message."""
     orig = getattr(exc, "orig", None)
     if orig is None:
-        return "Could not register owner (duplicate or constraint violation)."
+        return "Could not register owner (duplicate or constraint violation).1"
 
     pgcode = getattr(orig, "pgcode", None)
     diag = getattr(orig, "diag", None)
@@ -43,7 +43,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
         c = (constraint or "").lower()
         if "phone" in c or "uq_companies_owners_phone" in detail_lower:
             return "Phone is already registered."
-        return "Could not register owner (duplicate or constraint violation)."
+        return "Could not register owner (duplicate or constraint violation).2"
 
     if pgcode == _PG_NOT_NULL_VIOLATION or "not null violation" in detail_lower:
         logger.warning("Owner register NOT NULL violation column=%s", column)
@@ -63,7 +63,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
     if "uq_companies_owners_phone" in detail_lower or "ix_companies_owners_phone" in detail_lower:
         return "Phone is already registered."
 
-    return "Could not register owner (duplicate or constraint violation)."
+    return "Could not register owner (duplicate or constraint violation).3"
 
 
 class CompanyOwnerService:
