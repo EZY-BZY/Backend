@@ -10,6 +10,10 @@ from app.common.allenums import OwnerAccountStatus
 
 class OwnerCheckPhoneResponse(BaseModel):
     registered: bool
+    is_verified_phone: bool = Field(
+        False,
+        description="False when the phone is not registered or the account exists but phone is not verified; true when registered and verified.",
+    )
 
 
 class OwnerRegisterRequest(BaseModel):
@@ -32,6 +36,24 @@ class OwnerVerifyPhoneRequest(BaseModel):
     @classmethod
     def _strip_required(cls, v: str) -> str:
         return str(v).strip()
+
+
+class OwnerResendOtpWithPasswordRequest(BaseModel):
+    """Unauthenticated: prove ownership with phone + password, receive a new OTP in the response."""
+
+    phone: str = Field(..., min_length=1, max_length=64)
+    password: str = Field(..., min_length=1)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def _strip_phone(cls, v: str) -> str:
+        return str(v).strip()
+
+
+class OwnerOtpCodeResponse(BaseModel):
+    """Success payload for resend-OTP routes: only the issued code (also stored hashed on the owner)."""
+
+    otp: str
 
 
 class OwnerStatusUpdateRequest(BaseModel):
