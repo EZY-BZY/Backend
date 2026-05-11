@@ -55,14 +55,13 @@ class CountryService:
             flag_emoji=data.flag_emoji,
             created_by=actor_id,
             updated_by=actor_id,
-            created_at=now,
-            updated_at=now,
+            created_date=now.date(),
         )
         try:
             return self._repo.create(row)
         except IntegrityError as e:
             self._db.rollback()
-            raise ValueError(f"Could not create country (duplicate or constraint violation). {e}") from e
+            raise ValueError("Could not create country (duplicate or constraint violation).") from e
 
     def update(self, country_id: str, data: CountryUpdate, actor_id: str) -> Country | None:
         row = self._repo.get_by_id(country_id)
