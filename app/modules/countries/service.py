@@ -5,6 +5,7 @@ import re
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.db.base import utc_now
 from app.modules.countries.models import Country
 from app.modules.countries.repository import CountryRepository
 from app.modules.countries.schemas import CountryCreate, CountryUpdate
@@ -37,6 +38,8 @@ class CountryService:
         if self._repo.get_by_name_en(data.name_en):
             raise ValueError("A country with this English name already exists.")
 
+        now = utc_now()
+
         row = Country(
             phone_code=data.phone_code,
             name_en=data.name_en,
@@ -52,6 +55,8 @@ class CountryService:
             flag_emoji=data.flag_emoji,
             created_by=actor_id,
             updated_by=actor_id,
+            created_at=now,
+            updated_at=now,
         )
         try:
             return self._repo.create(row)
