@@ -57,7 +57,7 @@ class CountryService:
             return self._repo.create(row)
         except IntegrityError as e:
             self._db.rollback()
-            raise ValueError("Could not create country (duplicate or constraint violation).") from e
+            raise ValueError(f"Could not create country (duplicate or constraint violation). {e}") from e
 
     def update(self, country_id: str, data: CountryUpdate, actor_id: str) -> Country | None:
         row = self._repo.get_by_id(country_id)
