@@ -90,7 +90,8 @@ class CompanyOwnerService:
         return self._repo.get_by_phone(phone)
 
     def register(self, data: OwnerRegisterRequest) -> CompanyOwner:
-        if self._repo.get_by_phone(data.phone):
+        existing = self._repo.get_by_phone(data.phone)
+        if existing and existing.is_verified_phone:
             raise ValueError("Phone is already registered.")
 
         if owner_otp_uses_twilio_verify():
@@ -101,12 +102,32 @@ class CompanyOwnerService:
             otp_hash = get_password_hash(otp_plain_for_sms)
 
         created_at = utc_now()
+        pwd_hash = get_password_hash(data.password)
+        email_val = str(data.email) if data.email is not None else None
+
+        if existing:
+            existing.name = data.name
+            existing.email = email_val
+            existing.password_hash = pwd_hash
+            existing.otp_hash = otp_hash
+            existing.last_accepted_terms_date = created_at
+            existing.is_verified_phone = False
+            existing.account_status = OwnerAccountStatus.PENDING_VERIFICATION.value
+            existing.forgot_password_verify_attempts = 0
+            existing.forgot_password_resend_attempts = 0
+            existing.forgot_password_otp_hash = None
+            existing.forgot_password_otp_expires_at = None
+            existing.forgot_password_otp_verified_at = None
+            existing.forgot_password_last_sent_at = None
+            saved = self._repo.update(existing)
+            send_otp_sms(to_phone=saved.phone, otp_code=otp_plain_for_sms, name=saved.name)
+            return saved
 
         owner_row = CompanyOwner(
             name=data.name,
             phone=data.phone,
-            email=str(data.email) if data.email is not None else None,
-            password_hash=get_password_hash(data.password),
+            email=email_val,
+            password_hash=pwd_hash,
             otp_hash=otp_hash,
             last_accepted_terms_date=created_at,
             is_verified_phone=False,

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # App
     app_name: str = Field(default="B-easy SaaS API Default Value", description="Application name")
     environment: Literal["development", "staging", "production"] = Field(
-        default="production"
+        default="development"
     )
     debug: bool = Field(default=False)
     api_v1_prefix: str = Field(default="/api/v1")

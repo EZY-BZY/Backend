@@ -38,10 +38,10 @@ def _svc(db: DbSession) -> CompanyOwnerService:
         "**How the app usually uses this**\n"
         "- `registered=false` → phone is free: continue with `POST /owners/register`.\n"
         "- `registered=true` and `is_verified_phone=false` → owner exists but phone not verified yet: "
-        "call `POST /owners/resend-phone-otp` (Bearer owner token) or "
-        "`POST /owners/resend-phone-otp/with-password` (phone + password in JSON) to issue a new OTP "
-        "(delivered via your SMS/channel integration; not returned in the API), then `POST /owners/verify-phone` "
-        "with the code; do not register again.\n"
+        "either call `POST /owners/resend-phone-otp` (Bearer owner token) or "
+        "`POST /owners/resend-phone-otp/with-password` (phone + password) for a new OTP, **or** call "
+        "`POST /owners/register` again with the same phone to overwrite name/email/password and issue a fresh OTP "
+        "(same effect as a new signup for that phone).\n"
         "- `registered=true` and `is_verified_phone=true` → use `POST /clients/auth/login` with "
         "`account_type=owner` (login is rejected until the phone is verified).\n\n"
         "Unauthenticated; no side effects on the database."
@@ -62,12 +62,11 @@ def check_phone(db: DbSession, phone: str = Query(..., min_length=1)):
     response_model=ApiResponse[CompanyOwnerPublicRead],
     summary="Step 2: Register owner (before verification)",
     description=(
-        "Second step after Step 1 succeeded (`registered=false`).\n\n"
-        "Creates an owner account with:\n"
-        "- `is_verified_phone=false`\n"
-        "- `account_status=pending_verification`\n"
-        "- `join_date=now`\n\n"
-        "Then proceed to Step 3 (Verify phone)."
+        "Creates a new owner when the phone is unused, **or** updates an existing owner when that phone exists but "
+        "`is_verified_phone` is still `false` (overwrites name, email, password, terms timestamp, OTP; clears "
+        "forgot-password OTP fields; keeps the same `id` and `join_date`).\n\n"
+        "Rejected when the phone is already verified (`Phone is already registered`).\n\n"
+        "Then proceed to phone verification (OTP via SMS / Verify per your configuration)."
     ),
 )
 def register_owner(data: OwnerRegisterRequest, db: DbSession):
