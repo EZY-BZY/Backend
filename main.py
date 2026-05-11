@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.staticfiles import StaticFiles
 
 from app.common.api_response import ApiResponse, api_success
+from app.common.allenums import ResponseEnum
 
 from app.core.config import get_settings
 from app.core.logging_config import setup_logging
@@ -87,7 +88,7 @@ def create_app() -> FastAPI:
         """Health check for load balancers and containers."""
         return ApiResponse(
             status_code=200,
-            Message="Success",
+            Message=ResponseEnum.SUCCESS.value,
             Data={"App Name": settings.app_name},
         )
 
