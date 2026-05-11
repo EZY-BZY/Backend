@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # App
     app_name: str = Field(default="B-easy SaaS API Default Value", description="Application name")
     environment: Literal["development", "staging", "production"] = Field(
-        default="development"
+        default="production"
     )
     debug: bool = Field(default=False)
     api_v1_prefix: str = Field(default="/api/v1")
@@ -123,6 +123,41 @@ class Settings(BaseSettings):
         ge=1,
         le=200,
         description="Max files per multi-upload request (auto-detect batch)",
+    )
+
+    # Twilio — Programmable SMS (owner OTP custom message) + optional Verify API
+    twilio_account_sid: str | None = Field(
+        default=None,
+        alias="TWILIO_ACCOUNT_SID",
+        description="Twilio Account SID (**AC…**). Not a VA… Verify Service SID.",
+    )
+    twilio_auth_token: str | None = Field(
+        default=None,
+        alias="TWILIO_AUTH_TOKEN",
+        description="Twilio Auth Token (secret—not the AC string).",
+    )
+    twilio_phone_number: str | None = Field(
+        default=None,
+        alias="TWILIO_PHONE_NUMBER",
+        description="Twilio **sender** for Programmable SMS (E.164 or approved Twilio number) — ``messages.create(..., from_=…)``.",
+    )
+    twilio_verify_service_sid: str | None = Field(
+        default=None,
+        alias="TWILIO_VERIFY_SERVICE_SID",
+        description="Optional: Verify **Service** SID (**VA…**) for ``start_phone_verification`` / ``check_phone_verification``.",
+    )
+    twilio_send_sms_in_non_production: bool = Field(
+        default=False,
+        alias="TWILIO_SEND_SMS_IN_NON_PRODUCTION",
+        description="If true, allow Twilio calls from non-production; otherwise skip (local OTP only).",
+    )
+    twilio_owner_use_verify_for_otp: bool = Field(
+        default=False,
+        alias="TWILIO_OWNER_USE_VERIFY_FOR_OTP",
+        description=(
+            "If true, company-owner phone OTP is sent via Twilio Verify (no TWILIO_PHONE_NUMBER / From). "
+            "Requires TWILIO_VERIFY_SERVICE_SID (VA…). Use when Programmable SMS would fail (e.g. error 21659)."
+        ),
     )
 
     @computed_field  # type: ignore[prop-decorator]

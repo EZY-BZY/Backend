@@ -19,6 +19,11 @@ from app.modules.companies_owners.schemas import (
     OwnerRegisterRequest,
     OwnersListFilters,
 )
+from app.services.sms_service import (
+    check_phone_verification,
+    owner_otp_uses_twilio_verify,
+    send_otp_sms,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +36,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
     """Map PostgreSQL integrity errors to a safe, actionable API message."""
     orig = getattr(exc, "orig", None)
     if orig is None:
-        return "Could not register owner (duplicate or constraint violation).1"
+        return "Could not register owner (duplicate or constraint violation)."
 
     pgcode = getattr(orig, "pgcode", None)
     diag = getattr(orig, "diag", None)
@@ -43,7 +48,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
         c = (constraint or "").lower()
         if "phone" in c or "uq_companies_owners_phone" in detail_lower:
             return "Phone is already registered."
-        return "Could not register owner (duplicate or constraint violation).2"
+        return "Could not register owner (duplicate or constraint violation)."
 
     if pgcode == _PG_NOT_NULL_VIOLATION or "not null violation" in detail_lower:
         logger.warning("Owner register NOT NULL violation column=%s", column)
@@ -63,7 +68,7 @@ def _register_integrity_user_message(exc: IntegrityError) -> str:
     if "uq_companies_owners_phone" in detail_lower or "ix_companies_owners_phone" in detail_lower:
         return "Phone is already registered."
 
-    return "Could not register owner (duplicate or constraint violation).3"
+    return "Could not register owner (duplicate or constraint violation)."
 
 
 class CompanyOwnerService:
@@ -88,17 +93,21 @@ class CompanyOwnerService:
         if self._repo.get_by_phone(data.phone):
             raise ValueError("Phone is already registered.")
 
-        # OTP is fixed for now, later we will use a more secure OTP generation method.
-        # TODO: Implement a more secure OTP generation method, and Integrate with OTP service.
-        otp_code = self._new_owner_otp_plain()
+        if owner_otp_uses_twilio_verify():
+            otp_plain_for_sms = ""
+            otp_hash = None
+        else:
+            otp_plain_for_sms = self._new_owner_otp_plain()
+            otp_hash = get_password_hash(otp_plain_for_sms)
+
         created_at = utc_now()
 
-        row = CompanyOwner(
+        owner_row = CompanyOwner(
             name=data.name,
             phone=data.phone,
             email=str(data.email) if data.email is not None else None,
             password_hash=get_password_hash(data.password),
-            otp_hash=get_password_hash(otp_code),
+            otp_hash=otp_hash,
             last_accepted_terms_date=created_at,
             is_verified_phone=False,
             account_status=OwnerAccountStatus.PENDING_VERIFICATION.value,
@@ -106,11 +115,14 @@ class CompanyOwnerService:
             forgot_password_resend_attempts=0,
         )
         try:
-            return self._repo.create(row)
+            created = self._repo.create(owner_row)
         except IntegrityError as e:
             self._db.rollback()
             logger.warning("Owner register failed: %s", e.orig)
             raise ValueError(_register_integrity_user_message(e)) from e
+
+        send_otp_sms(to_phone=created.phone, otp_code=otp_plain_for_sms, name=created.name)
+        return created
 
     def verify_phone(self, *, phone: str, otp: str) -> CompanyOwner:
         row = self._repo.get_by_phone(phone)
@@ -120,11 +132,15 @@ class CompanyOwnerService:
         if row.is_verified_phone:
             raise ValueError("Phone is already verified.")
 
-        if not row.otp_hash:
-            raise ValueError("OTP is not available or already used.")
+        if owner_otp_uses_twilio_verify():
+            if not check_phone_verification(to_phone=phone, code=otp):
+                raise ValueError("Invalid OTP.")
+        else:
+            if not row.otp_hash:
+                raise ValueError("OTP is not available or already used.")
 
-        if not verify_password(otp, row.otp_hash):
-            raise ValueError("Invalid OTP.")
+            if not verify_password(otp, row.otp_hash):
+                raise ValueError("Invalid OTP.")
         #TODO: Make the OTP code null after successful verification.
 
         row.is_verified_phone = True
@@ -146,18 +162,23 @@ class CompanyOwnerService:
             return "000000"
         return f"{secrets.randbelow(1_000_000):06d}"
 
-    def _issue_otp_on_row(self, row: CompanyOwner) -> None:
+    def _issue_otp_on_row(self, row: CompanyOwner) -> str:
         self._ensure_can_issue_otp(row)
         otp_plain = self._new_owner_otp_plain()
         row.otp_hash = get_password_hash(otp_plain)
         self._repo.update(row)
+        return otp_plain
 
     def resend_otp_for_owner_id(self, owner_id: str) -> None:
         """Bearer token path: subject is companies_owners.id. OTP is stored hashed only (not returned)."""
         row = self._repo.get_by_id(owner_id)
         if not row:
             raise ValueError("Owner not found.")
-        self._issue_otp_on_row(row)
+        if owner_otp_uses_twilio_verify():
+            send_otp_sms(to_phone=row.phone, otp_code="", name=row.name)
+            return
+        otp_plain = self._issue_otp_on_row(row)
+        send_otp_sms(to_phone=row.phone, otp_code=otp_plain, name=row.name)
 
     def resend_otp_with_password(self, phone: str, password: str) -> None:
         """Phone + password path (e.g. before login / without token). OTP is stored hashed only (not returned)."""
@@ -166,7 +187,11 @@ class CompanyOwnerService:
             raise ValueError("Owner not found.")
         if not verify_password(password, row.password_hash):
             raise ValueError("Invalid phone or password.")
-        self._issue_otp_on_row(row)
+        if owner_otp_uses_twilio_verify():
+            send_otp_sms(to_phone=row.phone, otp_code="", name=row.name)
+            return
+        otp_plain = self._issue_otp_on_row(row)
+        send_otp_sms(to_phone=row.phone, otp_code=otp_plain, name=row.name)
 
     def authenticate_owner(self, *, phone: str, password: str) -> CompanyOwner:
         row = self._repo.get_by_phone(phone)

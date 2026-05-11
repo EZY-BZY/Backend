@@ -1,1 +1,1 @@
-"""Application-wide services (PDF, integrations, etc.)."""
+"""Application-wide services (PDF, media, SMS integrations, etc.)."""
