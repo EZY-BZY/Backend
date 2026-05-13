@@ -27,6 +27,21 @@ def _svc(db: DbSession) -> CompanyService:
     return CompanyService(db)
 
 
+@router.get(
+    "/all",
+    response_model=ApiResponse[list[CompanyRead]],
+    summary="List all companies for the authenticated owner",
+    description=(
+        "Returns every ``companies`` row whose ``owner_id`` matches the JWT subject (owner token). "
+        "Same shape as each item in ``companies`` on ``POST /clients/auth/login`` for owners. "
+        "Empty list when the owner has not created any company yet."
+    ),
+)
+def list_my_companies(db: DbSession, current: CurrentOwnerRequired):
+    data = _svc(db).companies_read_payload_for_owner(current["user_id"])
+    return json_success(data, message=ResponseEnum.SUCCESS.value)
+
+
 @router.post(
     "",
     response_model=ApiResponse[CompanyRead],

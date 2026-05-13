@@ -28,6 +28,7 @@ from app.modules.clients_auth.schemas import (
     ForgotPasswordVerifyOTP,
     OwnerBasicRead,
 )
+from app.modules.companies.service import CompanyService
 from app.modules.companies_owners.service import CompanyOwnerService
 from app.modules.clients_auth.dependencies import CurrentClientRequired
 
@@ -65,7 +66,9 @@ def _otp_expiry() -> datetime:
         "- Beasy employees must have `account_status=active` and must not be soft-deleted.\n"
         "- Company employees must be `is_active`, with a matching **active** row in "
         "`company_employee_phones` for the login phone.\n\n"
-        "Returns access + refresh tokens and basic user data."
+        "Returns access + refresh tokens, basic user data, and for **owners** a ``companies`` list "
+        "(all rows where ``companies.owner_id`` is the owner; empty list if none). Other account types get "
+        "``companies: []``."
     ),
 )
 def client_login(body: ClientLoginRequest, db: DbSession):
@@ -78,12 +81,14 @@ def client_login(body: ClientLoginRequest, db: DbSession):
             return json_error(ResponseEnum.ERROR.value, http_status=401, details=str(e))
         access = create_access_token(owner.id, extra_claims={"account_type": "owner"})
         refresh = create_refresh_token(owner.id)
+        companies = CompanyService(db).companies_read_payload_for_owner(str(owner.id))
         payload = ClientLoginResponse(
             access_token=access,
             refresh_token=refresh,
             token_type="bearer",
             expires_in=settings.access_token_expire_minutes * 60,
             user=OwnerBasicRead.model_validate(owner).model_dump(),
+            companies=companies,
         ).model_dump()
         return json_success(payload, message=ResponseEnum.SUCCESS.value)
 
@@ -104,6 +109,7 @@ def client_login(body: ClientLoginRequest, db: DbSession):
             token_type="bearer",
             expires_in=settings.access_token_expire_minutes * 60,
             user=EmployeeBasicRead.model_validate(employee).model_dump(),
+            companies=[],
         ).model_dump()
         return json_success(payload, message=ResponseEnum.SUCCESS.value)
 
@@ -128,6 +134,7 @@ def client_login(body: ClientLoginRequest, db: DbSession):
         token_type="bearer",
         expires_in=settings.access_token_expire_minutes * 60,
         user=CompanyEmployeeBasicRead.model_validate(cemp).model_dump(),
+        companies=[],
     ).model_dump()
     return json_success(payload, message=ResponseEnum.SUCCESS.value)
 

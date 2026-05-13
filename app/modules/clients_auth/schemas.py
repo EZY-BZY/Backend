@@ -1,6 +1,7 @@
 """Client auth schemas (owners/employees login)."""
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -58,6 +59,10 @@ class ClientLoginResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: dict
+    companies: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Owner login: companies where ``owner_id`` matches this user. Empty for employee logins.",
+    )
 
 
 class ForgotPasswordRequestOTP(BaseModel):

@@ -12,6 +12,7 @@ from app.modules.companies.schemas import (
     CompanyChangeVisibilityBody,
     CompanyCreate,
     CompanyUpdate,
+    company_read_dict,
 )
 from app.modules.industries.repository import IndustryRepository
 
@@ -37,6 +38,15 @@ class CompanyService:
 
     def list_companies(self) -> list[Company]:
         return self._repo.list_companies()
+
+    def companies_read_payload_for_owner(self, owner_id: str) -> list[dict]:
+        """Full company payloads (including ``industry_ids``) for API responses; may be empty."""
+        rows = self._repo.list_companies_for_owner(owner_id)
+        if not rows:
+            return []
+        ids = [str(r.id) for r in rows]
+        by_ind = self._repo.list_industry_ids_by_company_ids(ids)
+        return [company_read_dict(r, by_ind.get(str(r.id), [])) for r in rows]
 
     def get_company_by_id(self, company_id: str) -> Company | None:
         return self._repo.get_company_by_id(company_id)
