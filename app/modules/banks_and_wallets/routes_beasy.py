@@ -11,15 +11,19 @@ is ``type`` (``bank`` | ``wallet`` | ``app``); the ORM attribute is ``kind`` (se
 
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, File, Form, Query, UploadFile
+from pydantic import ValidationError
 
 from app.common.allenums import BankWalletType, ResponseEnum
 from app.common.api_response import ApiResponse, json_error, json_success
 from app.common.schemas import MessageResponse
+from app.core.config import get_settings
 from app.db.session import DbSession
 from app.modules.beasy_employees.dependencies import CurrentEmployeeRequired
+from app.services.media.upload_service import MediaUploadError, save_uploaded_file
 from app.modules.banks_and_wallets.schemas import (
     BankAndWalletCreate,
     BankAndWalletRead,
@@ -62,14 +66,41 @@ def list_banks_and_wallets(
 @router.post(
     "",
     response_model=ApiResponse[BankAndWalletRead],
-    summary="Create catalog entry",
-    description="Creates a bank, wallet, or app row; ``country_id`` must exist.",
+    summary="Create catalog entry (multipart)",
+    description=(
+        "Send ``multipart/form-data`` with fields ``name_ar``, ``name_en``, ``country_id`` (UUID), "
+        "``kind`` (``bank`` | ``wallet`` | ``app``), and ``image`` (image file: jpg, jpeg, png, webp). "
+        "The image is stored via the shared media upload service; ``country_id`` must exist."
+    ),
 )
-def create_bank_or_wallet(
-    data: BankAndWalletCreate,
+async def create_bank_or_wallet(
     db: DbSession,
     current: CurrentEmployeeRequired,
+    name_ar: Annotated[str, Form()],
+    name_en: Annotated[str, Form()],
+    country_id: Annotated[UUID, Form()],
+    kind: Annotated[BankWalletType, Form(description="bank | wallet | app")],
+    image: Annotated[UploadFile, File(description="Logo or icon image")],
 ):
+    settings = get_settings()
+    try:
+        upload = await save_uploaded_file(
+            image,
+            kind="image",
+            settings=settings,
+            strict_content_type=True,
+        )
+        data = BankAndWalletCreate(
+            name_ar=name_ar,
+            name_en=name_en,
+            country_id=country_id,
+            kind=kind,
+            image=upload.file_url,
+        )
+    except MediaUploadError as e:
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
+    except ValidationError as e:
+        return json_error(ResponseEnum.FAIL.value, http_status=400, details=str(e))
     try:
         row = _svc(db).create(data, actor_id=str(current.id))
     except ValueError as e:
