@@ -77,6 +77,29 @@ def get_current_client(
 CurrentClientRequired = Annotated[CurrentClient, Depends(get_current_client)]
 
 
+def get_optional_current_client(
+    db: DbSession,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(http_bearer)],
+) -> CurrentClient | None:
+    """Return the authenticated client, or ``None`` when no/invalid token (no 401)."""
+    if not credentials:
+        return None
+    payload = decode_token(credentials.credentials, expected_type="access")
+    if not payload:
+        return None
+    sub = payload.get("sub")
+    account_type = payload.get("account_type")
+    if not sub or account_type not in ("owner", "employee", "company_employee"):
+        return None
+    try:
+        return get_current_client(db, credentials)
+    except HTTPException:
+        return None
+
+
+OptionalCurrentClient = Annotated[CurrentClient | None, Depends(get_optional_current_client)]
+
+
 def get_current_owner_required(
     current: Annotated[CurrentClient, Depends(get_current_client)],
 ) -> CurrentClient:

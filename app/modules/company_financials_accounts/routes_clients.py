@@ -28,6 +28,7 @@ from app.modules.company_financials_accounts.schemas import (
     CompanyFinancialsAccountRead,
     CompanyFinancialsAccountUpdate,
     CompanyFinancialsAccountVisibilityBody,
+    financial_account_read_dict,
 )
 from app.modules.company_financials_accounts.service import CompanyFinancialsAccountService
 
@@ -45,7 +46,10 @@ def _svc(db: DbSession) -> CompanyFinancialsAccountService:
     "",
     response_model=ApiResponse[list[CompanyFinancialsAccountRead]],
     summary="List accounts for one company",
-    description="404 if ``company_id`` is missing or not owned by the authenticated owner.",
+    description=(
+        "404 if ``company_id`` is missing or not owned by the authenticated owner. "
+        "Each item includes nested ``bank_and_wallet`` (``name_ar``, ``name_en``, ``image``, ``kind``)."
+    ),
 )
 def list_financial_accounts(
     company_id: UUID,
@@ -56,7 +60,7 @@ def list_financial_accounts(
     if items is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
     return json_success(
-        [CompanyFinancialsAccountRead.model_validate(x).model_dump() for x in items],
+        [financial_account_read_dict(x) for x in items],
         message=ResponseEnum.SUCCESS.value,
     )
 
@@ -87,7 +91,10 @@ def create_financial_account(
     "/{account_id}",
     response_model=ApiResponse[CompanyFinancialsAccountRead],
     summary="Get one account",
-    description="404 if the company is not yours, the account id is wrong, or the account belongs to another company.",
+    description=(
+        "404 if the company is not yours, the account id is wrong, or the account belongs to another company. "
+        "Includes nested ``bank_and_wallet`` (``name_ar``, ``name_en``, ``image``, ``kind``)."
+    ),
 )
 def get_financial_account(
     company_id: UUID,
@@ -99,7 +106,7 @@ def get_financial_account(
     if row is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Not found")
     return json_success(
-        CompanyFinancialsAccountRead.model_validate(row).model_dump(),
+        financial_account_read_dict(row),
         message=ResponseEnum.SUCCESS.value,
     )
 

@@ -28,3 +28,18 @@ def ensure_client_company_access(db: DbSession, current: CurrentClient, company_
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed for this company (employee token needs matching company_id).",
         )
+
+
+def is_company_insider(db: DbSession, current: CurrentClient | None, company_id: str) -> bool:
+    """
+    True when the caller is the company owner or a company employee for this company.
+    All other callers (anonymous, Beasy staff, other owners) are public viewers.
+    """
+    if current is None:
+        return False
+    cid = str(company_id)
+    if current["account_type"] == "owner":
+        return CompanyService(db).get_company(cid, current["user_id"]) is not None
+    if current["account_type"] == "company_employee":
+        return str(current.get("company_id") or "") == cid
+    return False

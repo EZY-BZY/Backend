@@ -6,7 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.allenums import Weekday
-from app.modules.company_branches.dependencies import ensure_client_company_access
+from app.modules.companies.service import CompanyService
+from app.modules.company_branches.dependencies import ensure_client_company_access, is_company_insider
 from app.modules.company_branches.models import CompanyBranch, CompanyBranchContact, CompanyBranchWorkingHours
 from app.modules.company_branches.repository import CompanyBranchRepository
 from app.modules.company_branches.schemas import (
@@ -70,9 +71,52 @@ class CompanyBranchService:
         self._ensure_access(current, company_id)
         return self._repo.list_for_company(company_id, load_children=True)
 
-    def get_branch_client(self, company_id: str, branch_id: str, current: CurrentClient) -> CompanyBranch | None:
-        self._ensure_access(current, company_id)
-        return self._get_branch_for_company(company_id, branch_id, load_children=True)
+    def list_branches_client_paginated(
+        self,
+        company_id: str,
+        current: CurrentClient | None,
+        *,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[CompanyBranch], int] | None:
+        """
+        Paginated branches for a company.
+
+        Insiders (owner / company employee): all branches.
+        Public: only ``is_active`` and ``is_visible_to_clients`` both true.
+        """
+        if CompanyService(self._db).get_company_by_id(company_id) is None:
+            return None
+        insider = is_company_insider(self._db, current, company_id)
+        if insider and current is not None:
+            self._ensure_access(current, company_id)
+        skip = (page - 1) * page_size
+        items, total = self._repo.list_for_company_paginated(
+            company_id,
+            skip=skip,
+            limit=page_size,
+            load_children=True,
+            visible_to_public_only=not insider,
+        )
+        return items, total
+
+    def get_branch_client(
+        self,
+        company_id: str,
+        branch_id: str,
+        current: CurrentClient | None,
+    ) -> CompanyBranch | None:
+        if CompanyService(self._db).get_company_by_id(company_id) is None:
+            return None
+        insider = is_company_insider(self._db, current, company_id)
+        if insider and current is not None:
+            self._ensure_access(current, company_id)
+        row = self._get_branch_for_company(company_id, branch_id, load_children=True)
+        if row is None:
+            return None
+        if not insider and (not row.is_active or not row.is_visible_to_clients):
+            return None
+        return row
 
     def update_branch(
         self,

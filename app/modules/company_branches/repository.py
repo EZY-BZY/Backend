@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.common.allenums import Weekday
@@ -59,6 +59,32 @@ class CompanyBranchRepository:
         rows = list(self.db.execute(stmt).scalars().all())
         self._sort_working_hours(rows)
         return rows
+
+    def list_for_company_paginated(
+        self,
+        company_id: str,
+        *,
+        skip: int,
+        limit: int,
+        load_children: bool = False,
+        visible_to_public_only: bool = False,
+    ) -> tuple[list[CompanyBranch], int]:
+        base = select(CompanyBranch).where(CompanyBranch.company_id == company_id)
+        if visible_to_public_only:
+            base = base.where(
+                CompanyBranch.is_active.is_(True),
+                CompanyBranch.is_visible_to_clients.is_(True),
+            )
+        if load_children:
+            base = base.options(*self._branch_load_options())
+
+        count_stmt = select(func.count()).select_from(base.subquery())
+        total = int(self.db.execute(count_stmt).scalar_one())
+
+        stmt = base.order_by(CompanyBranch.branch_name.asc()).offset(skip).limit(limit)
+        rows = list(self.db.execute(stmt).scalars().all())
+        self._sort_working_hours(rows)
+        return rows, total
 
     def list_filtered(
         self,

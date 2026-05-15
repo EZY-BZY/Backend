@@ -23,6 +23,13 @@ from app.modules.company_contact_info.models import CompanyContactInfo  # noqa: 
 from app.modules.company_documents_and_files.models import CompanyDocumentAndFile, DocumentMedia  # noqa: F401
 from app.modules.company_financials_accounts.models import CompanyFinancialsAccount  # noqa: F401
 from app.modules.fixed_assets.models import AssetMedia, FixedAsset  # noqa: F401
+from app.modules.products_components.models import (  # noqa: F401
+    Component,
+    ComponentBranchQuantity,
+    Product,
+    ProductBranchQuantity,
+    ProductComponent,
+)
 from app.modules.countries.models import Country  # noqa: F401
 from app.modules.industries.models import Industry  # noqa: F401
 from app.modules.terms.models import Term, TermHistory  # noqa: F401

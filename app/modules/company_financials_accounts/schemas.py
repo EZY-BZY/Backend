@@ -3,7 +3,12 @@
 from datetime import datetime
 from uuid import UUID
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.common.allenums import BankWalletType
+from app.modules.company_financials_accounts.models import CompanyFinancialsAccount
 
 
 class CompanyFinancialsAccountVisibilityBody(BaseModel):
@@ -36,6 +41,17 @@ class CompanyFinancialsAccountUpdate(BaseModel):
         return str(v).strip()
 
 
+class BankAndWalletEmbeddedRead(BaseModel):
+    """Catalog row linked via ``banks_and_wallets_type_id``."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name_ar: str
+    name_en: str
+    image: str
+    kind: BankWalletType
+
+
 class CompanyFinancialsAccountRead(BaseModel):
     """Owner/client API: one linked bank, wallet, or app account for a company."""
 
@@ -48,8 +64,20 @@ class CompanyFinancialsAccountRead(BaseModel):
     account_name: str
     created_by: UUID
     is_visible: bool
+    bank_and_wallet: BankAndWalletEmbeddedRead | None = None
     created_at: datetime
     updated_at: datetime
+
+
+def financial_account_read_dict(row: CompanyFinancialsAccount) -> dict[str, Any]:
+    """Serialize account with nested ``bank_and_wallet`` catalog fields when loaded."""
+    payload = CompanyFinancialsAccountRead.model_validate(row).model_dump(mode="json")
+    catalog = getattr(row, "bank_and_wallet", None)
+    if catalog is not None:
+        payload["bank_and_wallet"] = BankAndWalletEmbeddedRead.model_validate(catalog).model_dump(
+            mode="json"
+        )
+    return payload
 
 
 class CompanyLinkedFinancialAccountRead(CompanyFinancialsAccountRead):

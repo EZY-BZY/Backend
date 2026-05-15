@@ -85,6 +85,7 @@ from app.modules.company_financials_accounts.routes_clients import (
     router as company_financials_clients_router,
 )
 from app.modules.fixed_assets.routes_clients import router as fixed_assets_clients_router
+from app.modules.products_components.routes_clients import router as products_components_clients_router
 
 api_router = APIRouter()
 
@@ -145,4 +146,5 @@ clients_router.include_router(company_documents_clients_router)
 clients_router.include_router(company_contact_info_clients_router)
 clients_router.include_router(company_branches_clients_router)  # /companies/{id}/branches
 clients_router.include_router(company_employees_clients_router)  # /companies/{id}/employees
+clients_router.include_router(products_components_clients_router)  # /companies/{id}/components|products
 api_router.include_router(clients_router)

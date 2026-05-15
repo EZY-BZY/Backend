@@ -1,10 +1,17 @@
 """Company-linked bank / wallet / app account numbers."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.modules.banks_and_wallets.models import BankAndWallet
 
 
 class CompanyFinancialsAccount(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -41,4 +48,10 @@ class CompanyFinancialsAccount(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
         server_default="true",
         doc="When false, account can be hidden from public/storefront UIs while kept in DB.",
+    )
+
+    bank_and_wallet: Mapped["BankAndWallet"] = relationship(
+        "BankAndWallet",
+        foreign_keys=[banks_and_wallets_type_id],
+        lazy="joined",
     )

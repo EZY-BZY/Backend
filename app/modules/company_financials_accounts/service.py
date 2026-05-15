@@ -47,7 +47,7 @@ class CompanyFinancialsAccountService:
     ) -> list[CompanyFinancialsAccount] | None:
         if self._companies.get_company(company_id, owner_id) is None:
             return None
-        return self._repo.list_for_company(company_id)
+        return self._repo.list_for_company(company_id, load_catalog=True)
 
     def get_for_owner(
         self,
@@ -57,7 +57,7 @@ class CompanyFinancialsAccountService:
     ) -> CompanyFinancialsAccount | None:
         if self._companies.get_company(company_id, owner_id) is None:
             return None
-        row = self._repo.get_by_id(account_id)
+        row = self._repo.get_by_id(account_id, load_catalog=True)
         if row is None or row.company_id != company_id:
             return None
         return row

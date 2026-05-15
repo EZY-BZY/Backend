@@ -3,8 +3,9 @@ Clients — **company branches** (owners and employees with matching ``company_i
 
 **Base path:** ``/clients/companies/{company_id}/branches``
 
-**Auth:** Client JWT (``account_type`` owner or employee). Employees must have ``company_id``
-in the access token matching the path company.
+**Auth:** List/get accept optional JWT. Company owner or company employee see all branches;
+other callers only see branches with ``is_active=true`` and ``is_visible_to_clients=true``.
+Mutating routes still require a valid owner/employee token.
 
 **Delete:** Branch and contact ``DELETE`` endpoints set ``is_active`` to false (soft deactivate).
 """
@@ -17,9 +18,11 @@ from fastapi import APIRouter
 
 from app.common.allenums import ResponseEnum
 from app.common.api_response import ApiResponse, json_error, json_success
-from app.common.schemas import MessageResponse
+from app.api.deps import Pagination
+from app.common.pagination import pagination_pages
+from app.common.schemas import MessageResponse, PaginatedResponse
 from app.db.session import DbSession
-from app.modules.clients_auth.dependencies import CurrentClientRequired
+from app.modules.clients_auth.dependencies import CurrentClientRequired, OptionalCurrentClient
 from app.modules.company_branches.schemas import (
     CompanyBranchContactCreate,
     CompanyBranchContactRead,
@@ -74,23 +77,57 @@ def create_branch(
 
 @router.get(
     "",
-    response_model=ApiResponse[list[CompanyBranchRead]],
-    summary="List my company branches",
+    response_model=ApiResponse[PaginatedResponse[CompanyBranchRead]],
+    summary="List company branches (paginated)",
+    description=(
+        "Paginated branch list.\n\n"
+        "**Company owner or company employee** (JWT for this ``company_id``): all branches.\n\n"
+        "**Everyone else** (no/invalid token or unrelated user): only branches with "
+        "``is_active=true`` and ``is_visible_to_clients=true``.\n\n"
+        "Query: ``page`` (default 1), ``page_size`` (default 20, max 100)."
+    ),
 )
-def list_branches(company_id: UUID, db: DbSession, current: CurrentClientRequired):
-    rows = _svc(db).list_branches_client(str(company_id), current)
-    return json_success(
-        [_dump_branch(x) for x in rows],
-        message=ResponseEnum.SUCCESS.value,
+def list_branches(
+    company_id: UUID,
+    db: DbSession,
+    pagination: Pagination,
+    current: OptionalCurrentClient = None,
+):
+    result = _svc(db).list_branches_client_paginated(
+        str(company_id),
+        current,
+        page=pagination.page,
+        page_size=pagination.page_size,
     )
+    if result is None:
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
+    rows, total = result
+    pages = pagination_pages(total, pagination.page_size)
+    payload = PaginatedResponse(
+        items=[_dump_branch(x) for x in rows],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        pages=pages,
+    ).model_dump(mode="json")
+    return json_success(payload, message=ResponseEnum.SUCCESS.value)
 
 
 @router.get(
     "/{branch_id}",
     response_model=ApiResponse[CompanyBranchRead],
-    summary="Get my company branch by id",
+    summary="Get company branch by id",
+    description=(
+        "Insiders may fetch any branch. Public callers only receive branches with "
+        "``is_active=true`` and ``is_visible_to_clients=true`` (otherwise 404)."
+    ),
 )
-def get_branch(company_id: UUID, branch_id: UUID, db: DbSession, current: CurrentClientRequired):
+def get_branch(
+    company_id: UUID,
+    branch_id: UUID,
+    db: DbSession,
+    current: OptionalCurrentClient = None,
+):
     row = _svc(db).get_branch_client(str(company_id), str(branch_id), current)
     if row is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Not found")
