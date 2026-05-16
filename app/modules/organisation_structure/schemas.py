@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -87,13 +88,16 @@ class OrganisationStructureRead(BaseModel):
 
 
 class OrganisationStructureEmployeeSummary(BaseModel):
-    """Minimal employee row on organisation structure detail."""
+    """Employee row on organisation structure detail."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     name: str
     role: CompanyEmployeeRole
+    salary: float | None
+    bonus_amount: float
+    image: str | None
 
     @field_validator("role", mode="before")
     @classmethod
@@ -101,6 +105,13 @@ class OrganisationStructureEmployeeSummary(BaseModel):
         if isinstance(v, CompanyEmployeeRole):
             return v
         return CompanyEmployeeRole(v)
+
+    @field_validator("salary", "bonus_amount", mode="before")
+    @classmethod
+    def _coerce_money(cls, v):
+        if v is None:
+            return None
+        return float(v)
 
 
 class OrganisationStructureDetailRead(OrganisationStructureRead):

@@ -23,6 +23,7 @@ def normalize_phone(v: str) -> str:
 
 class CompanyEmployeeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=512)
+    image: str | None = Field(None, max_length=2048, description="Profile image URL.")
     email: str | None = Field(None, max_length=512)
     password: str = Field(..., min_length=1)
     salary: float | None = Field(None, ge=0)
@@ -72,6 +73,7 @@ class CompanyEmployeeCreate(BaseModel):
 
 class CompanyEmployeeUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=512)
+    image: str | None = Field(None, max_length=2048, description="Profile image URL.")
     email: str | None = Field(None, max_length=512)
     password: str | None = Field(None, min_length=1)
     salary: float | None = Field(None, ge=0)
@@ -255,6 +257,7 @@ class CompanyEmployeeBaseRead(BaseModel):
     id: UUID
     company_id: UUID
     name: str
+    image: str | None
     email: str | None
     salary: float | None
     bonus_amount: float

@@ -125,7 +125,8 @@ def recalculate_all_organisation_structure_totals(
     summary="Get organisation structure by id with employees",
     description=(
         "Returns the organisation structure record and assigned employees "
-        "(``id``, ``name``, ``role`` only), non-deleted active employees first."
+        "(``id``, ``name``, ``role``, ``salary``, ``bonus_amount``, ``image``), "
+        "non-deleted active employees first."
     ),
 )
 def get_organisation_structure(

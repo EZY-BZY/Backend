@@ -156,6 +156,7 @@ class CompanyEmployeeService:
         row = CompanyEmployee(
             company_id=company_id,
             name=data.name,
+            image=data.image,
             email=data.email,
             password_hash=get_password_hash(data.password),
             salary=data.salary,

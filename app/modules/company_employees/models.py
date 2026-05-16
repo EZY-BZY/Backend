@@ -35,6 +35,7 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         index=True,
     )
     name: Mapped[str] = mapped_column(String(512), nullable=False)
+    image: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     email: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
 
