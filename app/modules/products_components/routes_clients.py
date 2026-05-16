@@ -69,8 +69,9 @@ def _svc(db: DbSession) -> ProductsComponentsService:
     response_model=ApiResponse[PaginatedResponse[ComponentRead]],
     summary="List components for the company (paginated)",
     description=(
-        "Paginated list of active components. Requires company owner or company employee JWT "
-        "for this ``company_id``. Query: ``page`` (default 1), ``page_size`` (default 20, max 100)."
+        "Paginated list of components (includes soft-deleted; non-deleted first). Requires company "
+        "owner or company employee JWT for this ``company_id``. Query: ``page`` (default 1), "
+        "``page_size`` (default 20, max 100)."
     ),
 )
 def list_components(
@@ -189,8 +190,7 @@ async def upload_component_main_image(
 @components_router.delete(
     "/{component_id}",
     response_model=ApiResponse[MessageResponse],
-    summary="Delete component (soft)",
-    description="Sets ``is_active`` to false.",
+    summary="Soft-delete component (keeps record, marks as deleted)",
 )
 def delete_component(
     company_id: UUID,
@@ -202,7 +202,7 @@ def delete_component(
     if not ok:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Component not found")
     return json_success(
-        MessageResponse(message="Component deactivated").model_dump(),
+        MessageResponse(message="Component marked as deleted successfully").model_dump(),
         message=ResponseEnum.SUCCESS.value,
     )
 
@@ -324,11 +324,11 @@ def delete_component_branch_quantity(
     response_model=ApiResponse[PaginatedResponse[ProductRead]],
     summary="List products for the company (paginated)",
     description=(
-        "Paginated list of active products for the company.\n\n"
+        "Paginated list of products for the company (non-deleted first).\n\n"
         "**Company owner or company employee** (valid JWT for this ``company_id``): "
-        "all active products, including those with ``show_product=false``; prices always visible.\n\n"
-        "**Everyone else** (no token, invalid token, or unrelated user): only products with "
-        "``show_product=true``; ``price`` is omitted when ``show_price=false``."
+        "all products including soft-deleted and ``show_product=false``; prices always visible.\n\n"
+        "**Everyone else** (no token, invalid token, or unrelated user): only non-deleted active "
+        "products with ``show_product=true``; ``price`` is omitted when ``show_price=false``."
     ),
 )
 def list_products(
@@ -450,7 +450,7 @@ async def upload_product_main_image(
 @products_router.delete(
     "/{product_id}",
     response_model=ApiResponse[MessageResponse],
-    summary="Delete product (soft)",
+    summary="Soft-delete product (keeps record, marks as deleted)",
 )
 def delete_product(
     company_id: UUID,
@@ -462,7 +462,7 @@ def delete_product(
     if not ok:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Product not found")
     return json_success(
-        MessageResponse(message="Product deactivated").model_dump(),
+        MessageResponse(message="Product marked as deleted successfully").model_dump(),
         message=ResponseEnum.SUCCESS.value,
     )
 

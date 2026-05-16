@@ -7,10 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.common.allenums import CompanyAuditActorType
 from app.core.security import get_password_hash, verify_password
+from app.db.base import utc_now
 from app.modules.app_permissions.models import AppPermission
 from app.modules.clients_auth.dependencies import CurrentClient
 from app.modules.company_employees.dependencies import ensure_employer_manage_access
-from app.modules.company_employees.models import CompanyEmployee, CompanyEmployeePhone, EmployeeAppPermission
+from app.modules.company_branches.repository import CompanyBranchRepository
+from app.modules.company_employees.models import (
+    CompanyEmployee,
+    CompanyEmployeeBranch,
+    CompanyEmployeePhone,
+    EmployeeAppPermission,
+)
 from app.modules.company_employees.repository import CompanyEmployeeRepository
 from app.modules.company_employees.schemas import (
     CompanyEmployeeCreate,
@@ -31,6 +38,7 @@ class CompanyEmployeeService:
     def __init__(self, db: Session) -> None:
         self._db = db
         self._repo = CompanyEmployeeRepository(db)
+        self._branches = CompanyBranchRepository(db)
 
     def get_by_id(self, employee_id: str, *, load_children: bool = False) -> CompanyEmployee | None:
         return self._repo.get_employee(employee_id, load_children=load_children)
@@ -41,7 +49,7 @@ class CompanyEmployeeService:
         except ValueError:
             return None
         emp = self._repo.get_employee_by_active_phone(normalized)
-        if emp is None or not verify_password(password, emp.password_hash):
+        if emp is None or emp.is_deleted or not verify_password(password, emp.password_hash):
             return None
         return emp
 
@@ -100,6 +108,39 @@ class CompanyEmployeeService:
         link.updated_by_type = actor_type
         link.updated_by_id = actor_id
 
+    def _require_branch_in_company(self, company_id: str, branch_id: str) -> None:
+        branch = self._branches.get_branch(branch_id)
+        if branch is None or str(branch.company_id) != str(company_id):
+            raise ValueError(f"Branch {branch_id} not found for this company.")
+        if branch.is_deleted:
+            raise ValueError(f"Branch {branch_id} has been deleted.")
+
+    def _assign_branch(
+        self,
+        employee_id: str,
+        branch_id: str,
+        company_id: str,
+        actor_type: str,
+        actor_id: str,
+    ) -> None:
+        self._require_branch_in_company(company_id, branch_id)
+        if self._repo.get_branch_assignment(employee_id, branch_id) is not None:
+            raise ValueError(f"Employee is already assigned to branch {branch_id}.")
+        self._db.add(
+            CompanyEmployeeBranch(
+                employee_id=employee_id,
+                branch_id=branch_id,
+                created_by_type=actor_type,
+                created_by_id=actor_id,
+            )
+        )
+
+    def _unassign_branch(self, employee_id: str, branch_id: str) -> None:
+        link = self._repo.get_branch_assignment(employee_id, branch_id)
+        if link is None:
+            raise ValueError(f"Employee is not assigned to branch {branch_id}.")
+        self._db.delete(link)
+
     def create_employee(
         self,
         company_id: str,
@@ -129,9 +170,10 @@ class CompanyEmployeeService:
             self._db.flush()
             for pid in data.app_permission_ids:
                 self._add_or_reactivate_permission(str(row.id), str(pid), actor_type, actor_id)
+            for bid in data.branch_ids:
+                self._assign_branch(str(row.id), str(bid), company_id, actor_type, actor_id)
             self._db.commit()
-            self._db.refresh(row)
-            return row
+            return self._repo.get_employee(str(row.id), load_children=True) or row
         except IntegrityError as e:
             self._db.rollback()
             raise ValueError("Could not create employee.") from e
@@ -143,9 +185,25 @@ class CompanyEmployeeService:
         ensure_employer_manage_access(self._db, current, company_id)
         return self._repo.list_for_company(company_id, load_children=True)
 
+    def list_employees_by_branch(
+        self,
+        company_id: str,
+        branch_id: str,
+        current: CurrentClient,
+    ) -> list[CompanyEmployee] | None:
+        """Employees assigned to ``branch_id``; ``None`` if branch is not in this company."""
+        ensure_employer_manage_access(self._db, current, company_id)
+        branch = self._branches.get_branch(branch_id)
+        if branch is None or str(branch.company_id) != str(company_id):
+            return None
+        return self._repo.list_for_branch(company_id, branch_id, load_children=True)
+
     def get_employee_client(self, company_id: str, employee_id: str, current: CurrentClient) -> CompanyEmployee | None:
         ensure_employer_manage_access(self._db, current, company_id)
-        return self._get_for_company(company_id, employee_id, load_children=True)
+        if self._get_for_company(company_id, employee_id, load_children=False) is None:
+            return None
+        # Reload with eager loads so branch_assignments are not polluted by prior join queries.
+        return self._repo.get_employee(employee_id, load_children=True)
 
     def update_employee(
         self,
@@ -158,11 +216,16 @@ class CompanyEmployeeService:
         row = self._get_for_company(company_id, employee_id, load_children=False)
         if row is None:
             return None
+        if row.is_deleted:
+            raise ValueError("Cannot update a deleted employee.")
         payload = data.model_dump(exclude_unset=True)
         new_ids = payload.pop("new_app_permission_ids", None)
         removed_ids = payload.pop("removed_app_permission_ids", None)
+        new_branch_ids = payload.pop("new_branch_ids", None)
+        removed_branch_ids = payload.pop("removed_branch_ids", None)
         perm_changes = new_ids is not None or removed_ids is not None
-        if not payload and not perm_changes:
+        branch_changes = new_branch_ids is not None or removed_branch_ids is not None
+        if not payload and not perm_changes and not branch_changes:
             return self._repo.get_employee(employee_id, load_children=True)
 
         actor_type, actor_id = _audit_from_current(current)
@@ -191,6 +254,16 @@ class CompanyEmployeeService:
                 for pid in new_ids:
                     self._add_or_reactivate_permission(employee_id, str(pid), actor_type, actor_id)
 
+            if removed_branch_ids is not None:
+                for bid in removed_branch_ids:
+                    self._unassign_branch(employee_id, str(bid))
+
+            if new_branch_ids is not None:
+                if not row.is_active:
+                    raise ValueError("Cannot assign branches to an inactive employee.")
+                for bid in new_branch_ids:
+                    self._assign_branch(employee_id, str(bid), company_id, actor_type, actor_id)
+
             self._repo.save_employee(row)
         except IntegrityError as e:
             self._db.rollback()
@@ -202,11 +275,17 @@ class CompanyEmployeeService:
         return self._repo.get_employee(employee_id, load_children=True)
 
     def deactivate_employee(self, company_id: str, employee_id: str, current: CurrentClient) -> bool:
+        """Soft-delete: mark deleted, deactivate login and related phones/permissions."""
         ensure_employer_manage_access(self._db, current, company_id)
         row = self._get_for_company(company_id, employee_id, load_children=True)
         if row is None:
             return False
+        if row.is_deleted:
+            return True
         actor_type, actor_id = _audit_from_current(current)
+        now = utc_now()
+        row.is_deleted = True
+        row.deleted_at = now
         row.is_active = False
         row.updated_by_type = actor_type
         row.updated_by_id = actor_id
@@ -223,7 +302,7 @@ class CompanyEmployeeService:
             self._repo.save_employee(row)
         except IntegrityError as e:
             self._db.rollback()
-            raise ValueError("Could not deactivate employee.") from e
+            raise ValueError("Could not delete employee.") from e
         return True
 
     def add_phone(
@@ -237,6 +316,8 @@ class CompanyEmployeeService:
         emp = self._get_for_company(company_id, employee_id, load_children=False)
         if emp is None:
             raise ValueError("Employee not found.")
+        if emp.is_deleted:
+            raise ValueError("Cannot add phone to a deleted employee.")
         if not emp.is_active:
             raise ValueError("Cannot add phone to an inactive employee.")
         actor_type, actor_id = _audit_from_current(current)

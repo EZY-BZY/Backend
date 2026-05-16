@@ -16,6 +16,7 @@ from app.modules.company_branches.models import (  # noqa: F401
 )
 from app.modules.company_employees.models import (  # noqa: F401
     CompanyEmployee,
+    CompanyEmployeeBranch,
     CompanyEmployeePhone,
     EmployeeAppPermission,
 )

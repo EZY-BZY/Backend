@@ -5,7 +5,12 @@ from __future__ import annotations
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
-from app.modules.company_employees.models import CompanyEmployee, CompanyEmployeePhone, EmployeeAppPermission
+from app.modules.company_employees.models import (
+    CompanyEmployee,
+    CompanyEmployeeBranch,
+    CompanyEmployeePhone,
+    EmployeeAppPermission,
+)
 
 
 class CompanyEmployeeRepository:
@@ -16,6 +21,7 @@ class CompanyEmployeeRepository:
         return (
             selectinload(CompanyEmployee.phones),
             selectinload(CompanyEmployee.app_permissions).selectinload(EmployeeAppPermission.app_permission),
+            selectinload(CompanyEmployee.branch_assignments).selectinload(CompanyEmployeeBranch.branch),
         )
 
     def get_employee(self, employee_id: str, *, load_children: bool = False) -> CompanyEmployee | None:
@@ -36,7 +42,41 @@ class CompanyEmployeeRepository:
                 CompanyEmployeePhone.phone_number == normalized_phone,
                 CompanyEmployeePhone.is_active.is_(True),
                 CompanyEmployee.is_active.is_(True),
+                CompanyEmployee.is_deleted.is_(False),
             )
+        )
+        return self.db.execute(stmt).scalar_one_or_none()
+
+    def list_for_branch(
+        self,
+        company_id: str,
+        branch_id: str,
+        *,
+        load_children: bool = True,
+        active_employees_only: bool = False,
+    ) -> list[CompanyEmployee]:
+        """Filter by branch via subquery (avoid join + selectinload duplicating ``branch_assignments``)."""
+        assigned = select(CompanyEmployeeBranch.employee_id).where(
+            CompanyEmployeeBranch.branch_id == branch_id,
+        )
+        stmt = select(CompanyEmployee).where(
+            CompanyEmployee.company_id == company_id,
+            CompanyEmployee.id.in_(assigned),
+        )
+        if active_employees_only:
+            stmt = stmt.where(
+                CompanyEmployee.is_active.is_(True),
+                CompanyEmployee.is_deleted.is_(False),
+            )
+        if load_children:
+            stmt = stmt.options(*self._employee_load_options())
+        stmt = stmt.order_by(CompanyEmployee.is_deleted.asc(), CompanyEmployee.name.asc())
+        return list(self.db.execute(stmt).scalars().all())
+
+    def get_branch_assignment(self, employee_id: str, branch_id: str) -> CompanyEmployeeBranch | None:
+        stmt = select(CompanyEmployeeBranch).where(
+            CompanyEmployeeBranch.employee_id == employee_id,
+            CompanyEmployeeBranch.branch_id == branch_id,
         )
         return self.db.execute(stmt).scalar_one_or_none()
 
@@ -44,7 +84,7 @@ class CompanyEmployeeRepository:
         stmt = select(CompanyEmployee).where(CompanyEmployee.company_id == company_id)
         if load_children:
             stmt = stmt.options(*self._employee_load_options())
-        stmt = stmt.order_by(CompanyEmployee.name.asc())
+        stmt = stmt.order_by(CompanyEmployee.is_deleted.asc(), CompanyEmployee.name.asc())
         return list(self.db.execute(stmt).scalars().all())
 
     def list_filtered(
@@ -64,7 +104,11 @@ class CompanyEmployeeRepository:
             stmt = stmt.where(CompanyEmployee.department == department)
         if is_active is not None:
             stmt = stmt.where(CompanyEmployee.is_active == is_active)
-        stmt = stmt.order_by(CompanyEmployee.company_id.asc(), CompanyEmployee.name.asc())
+        stmt = stmt.order_by(
+            CompanyEmployee.company_id.asc(),
+            CompanyEmployee.is_deleted.asc(),
+            CompanyEmployee.name.asc(),
+        )
         return list(self.db.execute(stmt).scalars().all())
 
     def create_employee(self, row: CompanyEmployee) -> CompanyEmployee:

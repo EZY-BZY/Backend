@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.allenums import Weekday
+from app.db.base import utc_now
 from app.modules.companies.service import CompanyService
 from app.modules.company_branches.dependencies import ensure_client_company_access, is_company_insider
 from app.modules.company_branches.models import CompanyBranch, CompanyBranchContact, CompanyBranchWorkingHours
@@ -114,7 +115,7 @@ class CompanyBranchService:
         row = self._get_branch_for_company(company_id, branch_id, load_children=True)
         if row is None:
             return None
-        if not insider and (not row.is_active or not row.is_visible_to_clients):
+        if not insider and (row.is_deleted or not row.is_active or not row.is_visible_to_clients):
             return None
         return row
 
@@ -129,6 +130,8 @@ class CompanyBranchService:
         row = self._get_branch_for_company(company_id, branch_id, load_children=False)
         if row is None:
             return None
+        if row.is_deleted:
+            raise ValueError("Cannot update a deleted branch.")
         payload = data.model_dump(exclude_unset=True)
         if not payload:
             return self._repo.get_branch(branch_id, load_children=True)
@@ -147,11 +150,17 @@ class CompanyBranchService:
         return self._repo.get_branch(branch_id, load_children=True)
 
     def deactivate_branch(self, company_id: str, branch_id: str, current: CurrentClient) -> bool:
+        """Soft-delete: mark deleted, deactivate branch and related contacts/hours."""
         self._ensure_access(current, company_id)
         row = self._get_branch_for_company(company_id, branch_id, load_children=True)
         if row is None:
             return False
+        if row.is_deleted:
+            return True
         actor = current["user_id"]
+        now = utc_now()
+        row.is_deleted = True
+        row.deleted_at = now
         row.is_active = False
         row.updated_by = actor
         for c in row.contacts:
@@ -165,7 +174,7 @@ class CompanyBranchService:
             self._repo.save_branch(row)
         except IntegrityError as e:
             self._db.rollback()
-            raise ValueError("Could not deactivate branch.") from e
+            raise ValueError("Could not delete branch.") from e
         return True
 
     def add_contact(

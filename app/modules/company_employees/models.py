@@ -47,6 +47,8 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", index=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_by_type: Mapped[str] = mapped_column(String(32), nullable=False)
     created_by_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
@@ -61,6 +63,11 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     app_permissions: Mapped[list["EmployeeAppPermission"]] = relationship(
         "EmployeeAppPermission",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+    )
+    branch_assignments: Mapped[list["CompanyEmployeeBranch"]] = relationship(
+        "CompanyEmployeeBranch",
         back_populates="employee",
         cascade="all, delete-orphan",
     )
@@ -84,6 +91,39 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         ),
         CheckConstraint("salary IS NULL OR salary >= 0", name="ck_company_employees_salary_nonneg"),
         CheckConstraint("bonus_amount >= 0", name="ck_company_employees_bonus_nonneg"),
+    )
+
+
+class CompanyEmployeeBranch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Many-to-many: which branches an employee works at."""
+
+    __tablename__ = "company_employee_branches"
+
+    employee_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("company_employees.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    branch_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("company_branches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    created_by_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_by_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+
+    employee: Mapped["CompanyEmployee"] = relationship("CompanyEmployee", back_populates="branch_assignments")
+    branch: Mapped["CompanyBranch"] = relationship("CompanyBranch", back_populates="employee_assignments")
+
+    __table_args__ = (
+        UniqueConstraint("employee_id", "branch_id", name="uq_company_employee_branches_pair"),
+        CheckConstraint(
+            "created_by_type IN ('company_owner', 'employee')",
+            name="ck_company_employee_branches_created_by_type",
+        ),
     )
 
 

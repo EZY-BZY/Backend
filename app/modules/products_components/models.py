@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Numeric,
     String,
@@ -42,6 +44,8 @@ class Component(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     updated_by_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     branch_quantities: Mapped[list["ComponentBranchQuantity"]] = relationship(
         "ComponentBranchQuantity",
@@ -92,6 +96,8 @@ class Product(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     updated_by_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     branch_quantities: Mapped[list["ProductBranchQuantity"]] = relationship(
         "ProductBranchQuantity",

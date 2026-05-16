@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import datetime, time
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Index,
     Numeric,
@@ -44,6 +45,8 @@ class CompanyBranch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     is_visible_to_clients: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="true", index=True
     )
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
@@ -59,6 +62,11 @@ class CompanyBranch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         back_populates="branch",
         cascade="all, delete-orphan",
         order_by="CompanyBranchWorkingHours.day_of_week",
+    )
+    employee_assignments: Mapped[list["CompanyEmployeeBranch"]] = relationship(
+        "CompanyEmployeeBranch",
+        back_populates="branch",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (

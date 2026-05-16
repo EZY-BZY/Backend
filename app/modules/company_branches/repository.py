@@ -55,7 +55,7 @@ class CompanyBranchRepository:
         stmt = select(CompanyBranch).where(CompanyBranch.company_id == company_id)
         if load_children:
             stmt = stmt.options(*self._branch_load_options())
-        stmt = stmt.order_by(CompanyBranch.branch_name.asc())
+        stmt = stmt.order_by(CompanyBranch.is_deleted.asc(), CompanyBranch.branch_name.asc())
         rows = list(self.db.execute(stmt).scalars().all())
         self._sort_working_hours(rows)
         return rows
@@ -72,6 +72,7 @@ class CompanyBranchRepository:
         base = select(CompanyBranch).where(CompanyBranch.company_id == company_id)
         if visible_to_public_only:
             base = base.where(
+                CompanyBranch.is_deleted.is_(False),
                 CompanyBranch.is_active.is_(True),
                 CompanyBranch.is_visible_to_clients.is_(True),
             )
@@ -81,7 +82,7 @@ class CompanyBranchRepository:
         count_stmt = select(func.count()).select_from(base.subquery())
         total = int(self.db.execute(count_stmt).scalar_one())
 
-        stmt = base.order_by(CompanyBranch.branch_name.asc()).offset(skip).limit(limit)
+        stmt = base.order_by(CompanyBranch.is_deleted.asc(), CompanyBranch.branch_name.asc()).offset(skip).limit(limit)
         rows = list(self.db.execute(stmt).scalars().all())
         self._sort_working_hours(rows)
         return rows, total
@@ -100,7 +101,11 @@ class CompanyBranchRepository:
             stmt = stmt.where(CompanyBranch.branch_type == branch_type)
         if is_active is not None:
             stmt = stmt.where(CompanyBranch.is_active == is_active)
-        stmt = stmt.order_by(CompanyBranch.company_id.asc(), CompanyBranch.branch_name.asc())
+        stmt = stmt.order_by(
+            CompanyBranch.company_id.asc(),
+            CompanyBranch.is_deleted.asc(),
+            CompanyBranch.branch_name.asc(),
+        )
         rows = list(self.db.execute(stmt).scalars().all())
         self._sort_working_hours(rows)
         return rows

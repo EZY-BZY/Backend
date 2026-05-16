@@ -23,6 +23,9 @@ from app.common.pagination import pagination_pages
 from app.common.schemas import MessageResponse, PaginatedResponse
 from app.db.session import DbSession
 from app.modules.clients_auth.dependencies import CurrentClientRequired, OptionalCurrentClient
+from app.modules.company_employees.dependencies import CurrentEmployerRequired
+from app.modules.company_employees.schemas import CompanyEmployeeRead, employee_read_dict
+from app.modules.company_employees.service import CompanyEmployeeService
 from app.modules.company_branches.schemas import (
     CompanyBranchContactCreate,
     CompanyBranchContactRead,
@@ -43,6 +46,10 @@ router = APIRouter(
 
 def _svc(db: DbSession) -> CompanyBranchService:
     return CompanyBranchService(db)
+
+
+def _employee_svc(db: DbSession) -> CompanyEmployeeService:
+    return CompanyEmployeeService(db)
 
 
 def _dump_branch(row) -> dict:
@@ -134,6 +141,30 @@ def get_branch(
     return json_success(_dump_branch(row), message=ResponseEnum.SUCCESS.value)
 
 
+@router.get(
+    "/{branch_id}/employees",
+    response_model=ApiResponse[list[CompanyEmployeeRead]],
+    summary="List employees assigned to a branch",
+    description=(
+        "Active employees linked to this branch. Requires company owner or company admin JWT. "
+        "404 if the branch does not belong to this company."
+    ),
+)
+def list_branch_employees(
+    company_id: UUID,
+    branch_id: UUID,
+    db: DbSession,
+    current: CurrentEmployerRequired,
+):
+    rows = _employee_svc(db).list_employees_by_branch(str(company_id), str(branch_id), current)
+    if rows is None:
+        return json_error(ResponseEnum.ERROR.value, http_status=404, details="Branch not found")
+    return json_success(
+        [employee_read_dict(x) for x in rows],
+        message=ResponseEnum.SUCCESS.value,
+    )
+
+
 @router.patch(
     "/{branch_id}",
     response_model=ApiResponse[CompanyBranchRead],
@@ -158,7 +189,7 @@ def update_branch(
 @router.delete(
     "/{branch_id}",
     response_model=ApiResponse[MessageResponse],
-    summary="Deactivate my company branch",
+    summary="Soft-delete my company branch (keeps record, marks as deleted)",
 )
 def deactivate_branch(company_id: UUID, branch_id: UUID, db: DbSession, current: CurrentClientRequired):
     try:
@@ -168,7 +199,7 @@ def deactivate_branch(company_id: UUID, branch_id: UUID, db: DbSession, current:
     if not ok:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Not found")
     return json_success(
-        MessageResponse(message="Branch deactivated successfully").model_dump(),
+        MessageResponse(message="Branch marked as deleted successfully").model_dump(),
         message=ResponseEnum.SUCCESS.value,
     )
 

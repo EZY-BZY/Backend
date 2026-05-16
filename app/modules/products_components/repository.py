@@ -20,11 +20,11 @@ class ProductsComponentsRepository:
 
     # --- Components ---
 
-    def list_components(self, company_id: str, *, active_only: bool = True) -> list[Component]:
+    def list_components(self, company_id: str, *, exclude_deleted: bool = False) -> list[Component]:
         stmt = select(Component).where(Component.company_id == company_id)
-        if active_only:
-            stmt = stmt.where(Component.is_active.is_(True))
-        stmt = stmt.order_by(Component.created_at.desc())
+        if exclude_deleted:
+            stmt = stmt.where(Component.is_deleted.is_(False))
+        stmt = stmt.order_by(Component.is_deleted.asc(), Component.created_at.desc())
         return list(self.db.execute(stmt).scalars().all())
 
     def list_components_paginated(
@@ -33,16 +33,20 @@ class ProductsComponentsRepository:
         *,
         skip: int,
         limit: int,
-        active_only: bool = True,
+        exclude_deleted: bool = False,
     ) -> tuple[list[Component], int]:
         base = select(Component).where(Component.company_id == company_id)
-        if active_only:
-            base = base.where(Component.is_active.is_(True))
+        if exclude_deleted:
+            base = base.where(Component.is_deleted.is_(False))
 
         count_stmt = select(func.count()).select_from(base.subquery())
         total = int(self.db.execute(count_stmt).scalar_one())
 
-        stmt = base.order_by(Component.created_at.desc()).offset(skip).limit(limit)
+        stmt = (
+            base.order_by(Component.is_deleted.asc(), Component.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
         items = list(self.db.execute(stmt).scalars().all())
         return items, total
 
@@ -62,11 +66,11 @@ class ProductsComponentsRepository:
 
     # --- Products ---
 
-    def list_products(self, company_id: str, *, active_only: bool = True) -> list[Product]:
+    def list_products(self, company_id: str, *, exclude_deleted: bool = False) -> list[Product]:
         stmt = select(Product).where(Product.company_id == company_id)
-        if active_only:
-            stmt = stmt.where(Product.is_active.is_(True))
-        stmt = stmt.order_by(Product.created_at.desc())
+        if exclude_deleted:
+            stmt = stmt.where(Product.is_deleted.is_(False))
+        stmt = stmt.order_by(Product.is_deleted.asc(), Product.created_at.desc())
         return list(self.db.execute(stmt).scalars().all())
 
     def list_products_paginated(
@@ -75,10 +79,13 @@ class ProductsComponentsRepository:
         *,
         skip: int,
         limit: int,
-        active_only: bool = True,
+        exclude_deleted: bool = False,
+        active_only: bool = False,
         visible_to_public_only: bool = False,
     ) -> tuple[list[Product], int]:
         base = select(Product).where(Product.company_id == company_id)
+        if exclude_deleted:
+            base = base.where(Product.is_deleted.is_(False))
         if active_only:
             base = base.where(Product.is_active.is_(True))
         if visible_to_public_only:
@@ -87,7 +94,11 @@ class ProductsComponentsRepository:
         count_stmt = select(func.count()).select_from(base.subquery())
         total = int(self.db.execute(count_stmt).scalar_one())
 
-        stmt = base.order_by(Product.created_at.desc()).offset(skip).limit(limit)
+        stmt = (
+            base.order_by(Product.is_deleted.asc(), Product.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
         items = list(self.db.execute(stmt).scalars().all())
         return items, total
 

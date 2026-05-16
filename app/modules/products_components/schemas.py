@@ -74,6 +74,8 @@ class ComponentRead(BaseModel):
     updated_by_type: str | None
     updated_by_id: UUID | None
     is_active: bool
+    is_deleted: bool
+    deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -138,6 +140,8 @@ class ProductRead(BaseModel):
     updated_by_type: str | None
     updated_by_id: UUID | None
     is_active: bool
+    is_deleted: bool
+    deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

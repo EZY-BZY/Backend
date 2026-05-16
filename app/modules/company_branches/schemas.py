@@ -187,6 +187,8 @@ class CompanyBranchRead(BaseModel):
     branch_type: CompanyBranchType
     is_active: bool
     is_visible_to_clients: bool
+    is_deleted: bool
+    deleted_at: datetime | None
     created_by: UUID | None
     updated_by: UUID | None
     created_at: datetime

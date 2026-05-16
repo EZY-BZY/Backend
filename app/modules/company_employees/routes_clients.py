@@ -8,6 +8,10 @@ Clients — **company employees** (owners or company admins only).
 **App permissions:** pass ``app_permission_ids`` on **create**. On **patch**, use ``new_app_permission_ids``
 and ``removed_app_permission_ids`` (omit both keys to leave permissions unchanged).
 
+**Branches:** pass ``branch_ids`` on **create**; on **patch** use ``new_branch_ids`` / ``removed_branch_ids``.
+Responses include ``branches`` only (each object has ``id``, ``branch_name``, etc.). List by branch:
+``GET .../branches/{branch_id}/employees``.
+
 **Deactivate:** ``DELETE`` on employee or phone sets ``is_active`` to false.
 """
 
@@ -28,8 +32,9 @@ from app.modules.company_employees.schemas import (
     CompanyEmployeePhoneRead,
     CompanyEmployeePhoneUpdate,
     CompanyEmployeeRead,
-    EmployeeAppPermissionRead,
     CompanyEmployeeUpdate,
+    EmployeeAppPermissionRead,
+    employee_read_dict,
 )
 from app.modules.company_employees.service import CompanyEmployeeService
 
@@ -44,7 +49,7 @@ def _svc(db: DbSession) -> CompanyEmployeeService:
 
 
 def _dump_emp(row) -> dict:
-    return CompanyEmployeeRead.model_validate(row).model_dump(by_alias=True, mode="json")
+    return employee_read_dict(row)
 
 
 def _dump_phone(row) -> dict:
@@ -103,7 +108,7 @@ def update_employee(
 @router.delete(
     "/{employee_id}",
     response_model=ApiResponse[MessageResponse],
-    summary="Deactivate company employee",
+    summary="Soft-delete company employee (keeps record, marks as deleted)",
 )
 def deactivate_employee(company_id: UUID, employee_id: UUID, db: DbSession, current: CurrentEmployerRequired):
     try:
@@ -113,7 +118,7 @@ def deactivate_employee(company_id: UUID, employee_id: UUID, db: DbSession, curr
     if not ok:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Not found")
     return json_success(
-        MessageResponse(message="Employee deactivated successfully").model_dump(),
+        MessageResponse(message="Employee marked as deleted successfully").model_dump(),
         message=ResponseEnum.SUCCESS.value,
     )
 

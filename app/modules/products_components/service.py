@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.db.base import utc_now
 from app.modules.clients_auth.dependencies import CurrentClient
 from app.modules.company_branches.repository import CompanyBranchRepository
 from app.modules.products_components.dependencies import audit_from_current
@@ -46,18 +47,20 @@ class ProductsComponentsService:
         branch = self._branches.get_branch(branch_id)
         if branch is None or str(branch.company_id) != str(company_id):
             raise ValueError("Branch not found for this company.")
+        if branch.is_deleted:
+            raise ValueError("Branch has been deleted.")
 
     def _get_component_for_company(
         self,
         company_id: str,
         component_id: str,
         *,
-        active_only: bool = True,
+        exclude_deleted: bool = True,
     ) -> Component | None:
         row = self._repo.get_component(component_id)
         if row is None or str(row.company_id) != str(company_id):
             return None
-        if active_only and not row.is_active:
+        if exclude_deleted and row.is_deleted:
             return None
         return row
 
@@ -66,12 +69,12 @@ class ProductsComponentsService:
         company_id: str,
         product_id: str,
         *,
-        active_only: bool = True,
+        exclude_deleted: bool = True,
     ) -> Product | None:
         row = self._repo.get_product(product_id)
         if row is None or str(row.company_id) != str(company_id):
             return None
-        if active_only and not row.is_active:
+        if exclude_deleted and row.is_deleted:
             return None
         return row
 
@@ -108,7 +111,7 @@ class ProductsComponentsService:
         current: CurrentClient,
     ) -> Component | None:
         self._ensure_company_access(current, company_id)
-        return self._get_component_for_company(company_id, component_id)
+        return self._get_component_for_company(company_id, component_id, exclude_deleted=False)
 
     def create_component(
         self,
@@ -149,9 +152,12 @@ class ProductsComponentsService:
         *,
         main_image_url: str | None = None,
     ) -> Component | None:
-        row = self.get_component(company_id, component_id, current)
+        row = self._get_component_for_company(company_id, component_id, exclude_deleted=False)
         if row is None:
             return None
+        if row.is_deleted:
+            raise ValueError("Cannot update a deleted component.")
+        self._ensure_company_access(current, company_id)
         payload = data.model_dump(exclude_unset=True)
         if main_image_url is not None:
             row.main_image = main_image_url
@@ -171,10 +177,15 @@ class ProductsComponentsService:
         component_id: str,
         current: CurrentClient,
     ) -> bool:
+        """Soft-delete: mark deleted and deactivate."""
         row = self._repo.get_component(component_id)
         if row is None or str(row.company_id) != str(company_id):
             return False
         self._ensure_company_access(current, company_id)
+        if row.is_deleted:
+            return True
+        row.is_deleted = True
+        row.deleted_at = utc_now()
         row.is_active = False
         self._apply_audit_update(row, current)
         self._repo.update_component(row)
@@ -198,8 +209,9 @@ class ProductsComponentsService:
         Paginated product list for a company.
 
         Returns ``None`` if the company does not exist, else ``(items, total, insider)``.
-        Insiders (owner / company employee) see all active products including hidden ones.
-        Public callers only see ``show_product=true`` and prices respect ``show_price``.
+        Insiders (owner / company employee) see all products including deleted and hidden ones,
+        ordered with non-deleted first. Public callers only see non-deleted active products with
+        ``show_product=true``; prices respect ``show_price``.
         """
         if CompanyService(self._db).get_company_by_id(company_id) is None:
             return None
@@ -211,7 +223,8 @@ class ProductsComponentsService:
             company_id,
             skip=skip,
             limit=page_size,
-            active_only=True,
+            exclude_deleted=not insider,
+            active_only=not insider,
             visible_to_public_only=not insider,
         )
         return items, total, insider
@@ -223,7 +236,7 @@ class ProductsComponentsService:
         current: CurrentClient,
     ) -> Product | None:
         self._ensure_company_access(current, company_id)
-        return self._get_product_for_company(company_id, product_id)
+        return self._get_product_for_company(company_id, product_id, exclude_deleted=False)
 
     def get_product_detail(
         self,
@@ -233,14 +246,16 @@ class ProductsComponentsService:
     ) -> dict | None:
         self._ensure_company_access(current, company_id)
         row = self._repo.get_product(product_id, load_children=True)
-        if row is None or str(row.company_id) != str(company_id) or not row.is_active:
+        if row is None or str(row.company_id) != str(company_id):
+            return None
+        insider = is_company_insider(self._db, current, company_id)
+        if row.is_deleted and not insider:
             return None
         from app.modules.products_components.schemas import (
             ProductBranchQuantityRead,
             ProductComponentWithComponentRead,
         )
 
-        insider = is_company_insider(self._db, current, company_id)
         return {
             "product": product_read_dict(row, insider=insider),
             "quantities_per_branch": [
@@ -258,7 +273,7 @@ class ProductsComponentsService:
                     updated_at=link.updated_at,
                 ).model_dump(mode="json")
                 for link in row.component_links
-                if link.component is not None and link.component.is_active
+                if link.component is not None and not link.component.is_deleted
             ],
         }
 
@@ -304,9 +319,12 @@ class ProductsComponentsService:
         *,
         main_image_url: str | None = None,
     ) -> Product | None:
-        row = self.get_product(company_id, product_id, current)
+        row = self._get_product_for_company(company_id, product_id, exclude_deleted=False)
         if row is None:
             return None
+        if row.is_deleted:
+            raise ValueError("Cannot update a deleted product.")
+        self._ensure_company_access(current, company_id)
         payload = data.model_dump(exclude_unset=True)
         if main_image_url is not None:
             row.main_image = main_image_url
@@ -326,10 +344,15 @@ class ProductsComponentsService:
         product_id: str,
         current: CurrentClient,
     ) -> bool:
+        """Soft-delete: mark deleted and deactivate."""
         row = self._repo.get_product(product_id)
         if row is None or str(row.company_id) != str(company_id):
             return False
         self._ensure_company_access(current, company_id)
+        if row.is_deleted:
+            return True
+        row.is_deleted = True
+        row.deleted_at = utc_now()
         row.is_active = False
         self._apply_audit_update(row, current)
         self._repo.update_product(row)
