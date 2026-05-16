@@ -23,8 +23,10 @@ from app.db.session import DbSession
 from app.modules.company_employees.dependencies import CurrentEmployerRequired
 from app.modules.organisation_structure.schemas import (
     OrganisationStructureCreate,
+    OrganisationStructureDetailRead,
     OrganisationStructureRead,
     OrganisationStructureUpdate,
+    organisation_structure_detail_dict,
 )
 from app.modules.organisation_structure.service import OrganisationStructureService
 
@@ -119,8 +121,12 @@ def recalculate_all_organisation_structure_totals(
 
 @router.get(
     "/{structure_id}",
-    response_model=ApiResponse[OrganisationStructureRead],
-    summary="Get organisation structure by id",
+    response_model=ApiResponse[OrganisationStructureDetailRead],
+    summary="Get organisation structure by id with employees",
+    description=(
+        "Returns the organisation structure record and assigned employees "
+        "(``id``, ``name``, ``role`` only), non-deleted active employees first."
+    ),
 )
 def get_organisation_structure(
     company_id: UUID,
@@ -128,10 +134,14 @@ def get_organisation_structure(
     db: DbSession,
     current: CurrentEmployerRequired,
 ):
-    row = _svc(db).get_by_id(str(company_id), str(structure_id), current)
-    if row is None:
+    result = _svc(db).get_by_id_with_employees(str(company_id), str(structure_id), current)
+    if result is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Not found")
-    return json_success(_dump(row), message=ResponseEnum.SUCCESS.value)
+    row, employees = result
+    return json_success(
+        organisation_structure_detail_dict(row, employees),
+        message=ResponseEnum.SUCCESS.value,
+    )
 
 
 @router.patch(

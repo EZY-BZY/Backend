@@ -9,6 +9,8 @@ from app.db.base import utc_now
 from app.modules.clients_auth.dependencies import CurrentClient
 from app.modules.companies.service import CompanyService
 from app.modules.company_employees.dependencies import ensure_employer_manage_access
+from app.modules.company_employees.models import CompanyEmployee
+from app.modules.company_employees.repository import CompanyEmployeeRepository
 from app.modules.organisation_structure.models import OrganisationStructure
 from app.modules.organisation_structure.repository import OrganisationStructureRepository
 from app.modules.organisation_structure.schemas import (
@@ -79,6 +81,23 @@ class OrganisationStructureService:
     ) -> OrganisationStructure | None:
         ensure_employer_manage_access(self._db, current, company_id)
         return self._repo.get_for_company(company_id, structure_id)
+
+    def get_by_id_with_employees(
+        self,
+        company_id: str,
+        structure_id: str,
+        current: CurrentClient,
+    ) -> tuple[OrganisationStructure, list[CompanyEmployee]] | None:
+        ensure_employer_manage_access(self._db, current, company_id)
+        row = self._repo.get_for_company(company_id, structure_id)
+        if row is None:
+            return None
+        employees = CompanyEmployeeRepository(self._db).list_for_organisation_structure(
+            company_id,
+            structure_id,
+            load_children=False,
+        )
+        return row, employees
 
     def update(
         self,

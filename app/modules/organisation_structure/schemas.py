@@ -7,6 +7,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.common.allenums import CompanyEmployeeRole
+from app.modules.company_employees.models import CompanyEmployee
+from app.modules.organisation_structure.models import OrganisationStructure
+
 
 def _strip_req(v: str) -> str:
     s = str(v).strip()
@@ -80,3 +84,38 @@ class OrganisationStructureRead(BaseModel):
     @classmethod
     def _coerce_salaries(cls, v):
         return float(v) if v is not None else 0.0
+
+
+class OrganisationStructureEmployeeSummary(BaseModel):
+    """Minimal employee row on organisation structure detail."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    role: CompanyEmployeeRole
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def _coerce_role(cls, v):
+        if isinstance(v, CompanyEmployeeRole):
+            return v
+        return CompanyEmployeeRole(v)
+
+
+class OrganisationStructureDetailRead(OrganisationStructureRead):
+    """Organisation structure with assigned employees (non-deleted first)."""
+
+    employees: list[OrganisationStructureEmployeeSummary] = Field(default_factory=list)
+
+
+def organisation_structure_detail_dict(
+    row: OrganisationStructure,
+    employees: list[CompanyEmployee],
+) -> dict[str, Any]:
+    base = OrganisationStructureRead.model_validate(row).model_dump(mode="json")
+    base["employees"] = [
+        OrganisationStructureEmployeeSummary.model_validate(emp).model_dump(mode="json")
+        for emp in employees
+    ]
+    return base

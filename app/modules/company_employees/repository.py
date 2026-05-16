@@ -87,6 +87,22 @@ class CompanyEmployeeRepository:
         stmt = stmt.order_by(CompanyEmployee.is_deleted.asc(), CompanyEmployee.name.asc())
         return list(self.db.execute(stmt).scalars().all())
 
+    def list_for_organisation_structure(
+        self,
+        company_id: str,
+        organisation_structure_id: str,
+        *,
+        load_children: bool = True,
+    ) -> list[CompanyEmployee]:
+        stmt = select(CompanyEmployee).where(
+            CompanyEmployee.company_id == company_id,
+            CompanyEmployee.organisation_structure_id == organisation_structure_id,
+        )
+        if load_children:
+            stmt = stmt.options(*self._employee_load_options())
+        stmt = stmt.order_by(CompanyEmployee.is_deleted.asc(), CompanyEmployee.name.asc())
+        return list(self.db.execute(stmt).scalars().all())
+
     def list_filtered(
         self,
         *,
