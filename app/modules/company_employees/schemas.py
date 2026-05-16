@@ -29,6 +29,10 @@ class CompanyEmployeeCreate(BaseModel):
     bonus_amount: float = Field(0, ge=0)
     salary_system: CompanySalarySystem | None = None
     department: str | None = Field(None, max_length=256)
+    organisation_structure_id: UUID | None = Field(
+        None,
+        description="Organisation structure / department UUID (must belong to the same company).",
+    )
     role: CompanyEmployeeRole
     app_permission_ids: list[UUID] = Field(
         default_factory=list,
@@ -74,6 +78,10 @@ class CompanyEmployeeUpdate(BaseModel):
     bonus_amount: float | None = Field(None, ge=0)
     salary_system: CompanySalarySystem | None = None
     department: str | None = Field(None, max_length=256)
+    organisation_structure_id: UUID | None = Field(
+        None,
+        description="Organisation structure / department UUID (must belong to the same company).",
+    )
     role: CompanyEmployeeRole | None = None
     is_active: bool | None = None
     new_app_permission_ids: list[UUID] | None = Field(
@@ -252,6 +260,7 @@ class CompanyEmployeeBaseRead(BaseModel):
     bonus_amount: float
     salary_system: CompanySalarySystem | None
     department: str | None
+    organisation_structure_id: UUID | None
     role: CompanyEmployeeRole
     is_active: bool
     is_deleted: bool

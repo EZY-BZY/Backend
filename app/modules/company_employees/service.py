@@ -12,6 +12,8 @@ from app.modules.app_permissions.models import AppPermission
 from app.modules.clients_auth.dependencies import CurrentClient
 from app.modules.company_employees.dependencies import ensure_employer_manage_access
 from app.modules.company_branches.repository import CompanyBranchRepository
+from app.modules.organisation_structure.recalc import refresh_organisation_structure_totals
+from app.modules.organisation_structure.validation import ensure_organisation_structure_for_company
 from app.modules.company_employees.models import (
     CompanyEmployee,
     CompanyEmployeeBranch,
@@ -148,6 +150,8 @@ class CompanyEmployeeService:
         data: CompanyEmployeeCreate,
     ) -> CompanyEmployee:
         ensure_employer_manage_access(self._db, current, company_id)
+        org_id = str(data.organisation_structure_id) if data.organisation_structure_id else None
+        ensure_organisation_structure_for_company(self._db, company_id, org_id)
         actor_type, actor_id = _audit_from_current(current)
         row = CompanyEmployee(
             company_id=company_id,
@@ -158,6 +162,7 @@ class CompanyEmployeeService:
             bonus_amount=data.bonus_amount,
             salary_system=data.salary_system.value if data.salary_system else None,
             department=data.department,
+            organisation_structure_id=org_id,
             role=data.role.value,
             is_active=True,
             created_by_type=actor_type,
@@ -172,6 +177,7 @@ class CompanyEmployeeService:
                 self._add_or_reactivate_permission(str(row.id), str(pid), actor_type, actor_id)
             for bid in data.branch_ids:
                 self._assign_branch(str(row.id), str(bid), company_id, actor_type, actor_id)
+            refresh_organisation_structure_totals(self._db, org_id)
             self._db.commit()
             return self._repo.get_employee(str(row.id), load_children=True) or row
         except IntegrityError as e:
@@ -218,6 +224,7 @@ class CompanyEmployeeService:
             return None
         if row.is_deleted:
             raise ValueError("Cannot update a deleted employee.")
+        previous_org_id = row.organisation_structure_id
         payload = data.model_dump(exclude_unset=True)
         new_ids = payload.pop("new_app_permission_ids", None)
         removed_ids = payload.pop("removed_app_permission_ids", None)
@@ -239,6 +246,11 @@ class CompanyEmployeeService:
         if "salary_system" in payload:
             ss = payload.pop("salary_system")
             row.salary_system = ss.value if ss is not None else None
+        if "organisation_structure_id" in payload:
+            raw_org = payload.pop("organisation_structure_id")
+            org_id = str(raw_org) if raw_org is not None else None
+            ensure_organisation_structure_for_company(self._db, company_id, org_id)
+            row.organisation_structure_id = org_id
         for k, v in payload.items():
             setattr(row, k, v)
 
@@ -264,6 +276,12 @@ class CompanyEmployeeService:
                 for bid in new_branch_ids:
                     self._assign_branch(employee_id, str(bid), company_id, actor_type, actor_id)
 
+            self._db.flush()
+            refresh_organisation_structure_totals(
+                self._db,
+                previous_org_id,
+                row.organisation_structure_id,
+            )
             self._repo.save_employee(row)
         except IntegrityError as e:
             self._db.rollback()
@@ -282,6 +300,7 @@ class CompanyEmployeeService:
             return False
         if row.is_deleted:
             return True
+        previous_org_id = row.organisation_structure_id
         actor_type, actor_id = _audit_from_current(current)
         now = utc_now()
         row.is_deleted = True
@@ -299,6 +318,8 @@ class CompanyEmployeeService:
             link.updated_by_type = actor_type
             link.updated_by_id = actor_id
         try:
+            self._db.flush()
+            refresh_organisation_structure_totals(self._db, previous_org_id)
             self._repo.save_employee(row)
         except IntegrityError as e:
             self._db.rollback()

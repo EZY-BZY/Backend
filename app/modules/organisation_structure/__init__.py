@@ -1,0 +1,1 @@
+"""Company organisation structure (departments)."""

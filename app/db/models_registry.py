@@ -14,6 +14,7 @@ from app.modules.company_branches.models import (  # noqa: F401
     CompanyBranchContact,
     CompanyBranchWorkingHours,
 )
+from app.modules.organisation_structure.models import OrganisationStructure  # noqa: F401
 from app.modules.company_employees.models import (  # noqa: F401
     CompanyEmployee,
     CompanyEmployeeBranch,

@@ -78,6 +78,9 @@ from app.modules.company_contact_info.routes_clients import (
     router as company_contact_info_clients_router,
 )
 from app.modules.company_employees.routes_clients import router as company_employees_clients_router
+from app.modules.organisation_structure.routes_clients import (
+    router as organisation_structure_clients_router,
+)
 from app.modules.company_documents_and_files.routes_clients import (
     router as company_documents_clients_router,
 )
@@ -146,5 +149,8 @@ clients_router.include_router(company_documents_clients_router)
 clients_router.include_router(company_contact_info_clients_router)
 clients_router.include_router(company_branches_clients_router)  # /companies/{id}/branches
 clients_router.include_router(company_employees_clients_router)  # /companies/{id}/employees
+clients_router.include_router(
+    organisation_structure_clients_router
+)  # /companies/{id}/organisation-structure
 clients_router.include_router(products_components_clients_router)  # /companies/{id}/components|products
 api_router.include_router(clients_router)

@@ -44,6 +44,12 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     salary_system: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     department: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    organisation_structure_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("organisation_structures.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     role: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", index=True)
@@ -70,6 +76,10 @@ class CompanyEmployee(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         "CompanyEmployeeBranch",
         back_populates="employee",
         cascade="all, delete-orphan",
+    )
+    organisation_structure: Mapped["OrganisationStructure | None"] = relationship(
+        "OrganisationStructure",
+        back_populates="employees",
     )
 
     __table_args__ = (
