@@ -18,12 +18,13 @@ from app.api.deps import Pagination
 from app.common.allenums import ResponseEnum
 from app.common.api_response import ApiResponse, json_error, json_success
 from app.common.pagination import pagination_pages
-from app.common.schemas import MessageResponse, PaginatedResponse
+from app.common.schemas import MessageResponse
 from app.db.session import DbSession
 from app.modules.company_employees.dependencies import CurrentEmployerRequired
 from app.modules.organisation_structure.schemas import (
     OrganisationStructureCreate,
     OrganisationStructureDetailRead,
+    OrganisationStructurePaginatedList,
     OrganisationStructureRead,
     OrganisationStructureUpdate,
     organisation_structure_detail_dict,
@@ -64,11 +65,13 @@ def create_organisation_structure(
 
 @router.get(
     "",
-    response_model=ApiResponse[PaginatedResponse[OrganisationStructureRead]],
+    response_model=ApiResponse[OrganisationStructurePaginatedList],
     summary="List organisation structures (paginated, searchable)",
     description=(
         "Paginated list with optional ``search`` on ``name_en`` or ``name_ar``. "
-        "Non-deleted records appear first."
+        "Non-deleted records appear first. "
+        "``total_employees`` and ``total_salaries`` at the root are summed across all "
+        "non-deleted departments in the company (not just the current page)."
     ),
 )
 def list_organisation_structures(
@@ -87,14 +90,16 @@ def list_organisation_structures(
     )
     if result is None:
         return json_error(ResponseEnum.ERROR.value, http_status=404, details="Company not found")
-    rows, total = result
-    pages = pagination_pages(total, pagination.page_size)
-    payload = PaginatedResponse(
-        items=[_dump(r) for r in rows],
-        total=total,
+    rows, departments_total, total_employees, total_salaries = result
+    pages = pagination_pages(departments_total, pagination.page_size)
+    payload = OrganisationStructurePaginatedList(
+        items=[OrganisationStructureRead.model_validate(r) for r in rows],
+        total=departments_total,
         page=pagination.page,
         page_size=pagination.page_size,
         pages=pages,
+        total_employees=total_employees,
+        total_salaries=total_salaries,
     ).model_dump(mode="json")
     return json_success(payload, message=ResponseEnum.SUCCESS.value)
 

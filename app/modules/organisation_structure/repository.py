@@ -142,3 +142,19 @@ class OrganisationStructureRepository:
     def list_ids_for_company(self, company_id: str) -> list[str]:
         stmt = select(OrganisationStructure.id).where(OrganisationStructure.company_id == company_id)
         return [str(x) for x in self.db.execute(stmt).scalars().all()]
+
+    def sum_department_totals_for_company(
+        self,
+        company_id: str,
+        *,
+        include_deleted: bool = False,
+    ) -> tuple[int, float]:
+        """Sum ``total_employees`` and ``total_salaries`` across all departments in the company."""
+        stmt = select(
+            func.coalesce(func.sum(OrganisationStructure.total_employees), 0),
+            func.coalesce(func.sum(OrganisationStructure.total_salaries), 0),
+        ).where(OrganisationStructure.company_id == company_id)
+        if not include_deleted:
+            stmt = stmt.where(OrganisationStructure.is_deleted.is_(False))
+        employees, salaries = self.db.execute(stmt).one()
+        return int(employees or 0), float(salaries or 0)

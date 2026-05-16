@@ -60,18 +60,29 @@ class OrganisationStructureService:
         page: int,
         page_size: int,
         search: str | None = None,
-    ) -> tuple[list[OrganisationStructure], int] | None:
+    ) -> tuple[list[OrganisationStructure], int, int, float] | None:
+        """
+        Returns ``(items, departments_total, total_employees, total_salaries)``.
+
+        ``total_employees`` / ``total_salaries`` are summed across all non-deleted departments
+        in the company (not limited to the current page or search filter).
+        """
         if CompanyService(self._db).get_company_by_id(company_id) is None:
             return None
         ensure_employer_manage_access(self._db, current, company_id)
         skip = (page - 1) * page_size
-        return self._repo.list_for_company_paginated(
+        items, departments_total = self._repo.list_for_company_paginated(
             company_id,
             skip=skip,
             limit=page_size,
             search=search,
             include_deleted=True,
         )
+        total_employees, total_salaries = self._repo.sum_department_totals_for_company(
+            company_id,
+            include_deleted=False,
+        )
+        return items, departments_total, total_employees, total_salaries
 
     def get_by_id(
         self,

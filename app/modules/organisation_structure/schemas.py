@@ -114,6 +114,29 @@ class OrganisationStructureEmployeeSummary(BaseModel):
         return float(v)
 
 
+class OrganisationStructurePaginatedList(BaseModel):
+    """Paginated departments plus company-wide totals across all departments."""
+
+    items: list[OrganisationStructureRead]
+    total: int = Field(..., description="Total number of departments matching the list filter")
+    page: int = Field(..., ge=1)
+    page_size: int = Field(..., ge=1, le=100)
+    pages: int = Field(..., ge=0)
+    total_employees: int = Field(
+        ...,
+        description="Sum of employees across all non-deleted departments in the company",
+    )
+    total_salaries: float = Field(
+        ...,
+        description="Sum of salaries across all non-deleted departments in the company",
+    )
+
+    @field_validator("total_salaries", mode="before")
+    @classmethod
+    def _coerce_list_salaries(cls, v):
+        return float(v) if v is not None else 0.0
+
+
 class OrganisationStructureDetailRead(OrganisationStructureRead):
     """Organisation structure with assigned employees (non-deleted first)."""
 
