@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -12,6 +13,16 @@ from app.common.allenums import CompanyServiceType, CompanyStatus
 
 if TYPE_CHECKING:
     from app.modules.companies.models import Company
+
+_TAX_NUMBER_RE = re.compile(r"\D")
+
+
+def normalize_tax_number(value: str | int | None) -> str | None:
+    """Keep digits only; spaces, dashes, and other characters are removed."""
+    if value is None:
+        return None
+    digits = _TAX_NUMBER_RE.sub("", str(value).strip())
+    return digits or None
 
 
 class CompanyCreate(BaseModel):
@@ -27,11 +38,20 @@ class CompanyCreate(BaseModel):
         description="Signed balance; may be negative. Stored with high precision in the database.",
     )
     service: CompanyServiceType
-    tax_number: str | None = Field(None, max_length=128)
+    tax_number: str | int | None = Field(
+        None,
+        max_length=128,
+        description="Digits only in storage; spaces, dashes, and other separators are stripped on save.",
+    )
     industry_ids: list[UUID] = Field(
         default_factory=list,
         description="Industries this company serves (must exist in the industries catalog).",
     )
+
+    @field_validator("tax_number", mode="before")
+    @classmethod
+    def _normalize_tax_number(cls, v: str | int | None) -> str | None:
+        return normalize_tax_number(v)
 
     @field_validator("industry_ids", mode="after")
     @classmethod
@@ -50,13 +70,7 @@ class CompanyCreate(BaseModel):
             return None
         return str(v).strip()
 
-    @field_validator(
-        "company_name_ar",
-        "company_name_en",
-        "tax_number",
-        "image",
-        mode="before",
-    )
+    @field_validator("company_name_ar", "company_name_en", "image", mode="before")
     @classmethod
     def _strip_optional_strings(cls, v: str | None) -> str | None:
         if v is None:
@@ -78,12 +92,21 @@ class CompanyUpdate(BaseModel):
         description="Signed balance; may be negative.",
     )
     service: CompanyServiceType | None = None
-    tax_number: str | None = Field(None, max_length=128)
+    tax_number: str | int | None = Field(
+        None,
+        max_length=128,
+        description="Digits only in storage; spaces, dashes, and other separators are stripped on save.",
+    )
     status: CompanyStatus | None = None
     industry_ids: list[UUID] | None = Field(
         None,
         description="If set, replaces the full list of industries for this company.",
     )
+
+    @field_validator("tax_number", mode="before")
+    @classmethod
+    def _normalize_tax_number_u(cls, v: str | int | None) -> str | None:
+        return normalize_tax_number(v)
 
     @field_validator("industry_ids", mode="after")
     @classmethod
@@ -106,15 +129,9 @@ class CompanyUpdate(BaseModel):
             return None
         return str(v).strip()
 
-    @field_validator(
-        "company_name_ar",
-        "company_name_en",
-        "tax_number",
-        "image",
-        mode="before",
-    )
+    @field_validator("company_name_ar", "company_name_en", "image", mode="before")
     @classmethod
-    def _strip_optional_strings(cls, v: str | None) -> str | None:
+    def _strip_optional_strings_u(cls, v: str | None) -> str | None:
         if v is None:
             return None
         s = str(v).strip()
@@ -157,6 +174,6 @@ class CompanyRead(BaseModel):
 
 def company_read_dict(company: Company, industry_ids: list[str]) -> dict:
     """Build API payload including ``industry_ids`` (stored in ``company_industries``)."""
-    d = CompanyRead.model_validate(company).model_dump()
+    d = CompanyRead.model_validate(company).model_dump(mode="json")
     d["industry_ids"] = [UUID(x) for x in industry_ids]
     return d

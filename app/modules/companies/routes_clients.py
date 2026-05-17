@@ -55,7 +55,7 @@ def list_my_companies(db: DbSession, current: CurrentOwnerRequired):
         "- `company_description_en` (optional)\n"
         "- `current_balance` (required)\n"
         "- `service` (required): services | products | products_and_services\n"
-        "- `tax_number` (optional)\n"
+        "- `tax_number` (optional): digits only stored; spaces/dashes are removed automatically\n"
         "- `image` (optional)\n"
         "- `industry_ids` (optional): list of industry UUIDs this company serves\n\n"
         "Show flags default to false; use `PUT .../change-statuses` to update them."
@@ -77,6 +77,7 @@ def create_company(db: DbSession, current: CurrentOwnerRequired, data: CompanyCr
     "/{company_id}",
     response_model=ApiResponse[CompanyRead],
     summary="Get company details",
+    description="Includes optional ``tax_number`` when set on the company.",
 )
 def get_company(company_id: UUID, db: DbSession, current: CurrentOwnerRequired):
     svc = _svc(db)
@@ -93,6 +94,12 @@ def get_company(company_id: UUID, db: DbSession, current: CurrentOwnerRequired):
     "/{company_id}",
     response_model=ApiResponse[CompanyRead],
     summary="Update company",
+    description=(
+        "Partial update. Optional fields include ``tax_number`` (digits only stored; "
+        "send ``null`` to clear), "
+        "``image``, names, descriptions, ``current_balance``, ``service``, ``status``, "
+        "and ``industry_ids`` (replaces the full list when provided)."
+    ),
 )
 def update_company(
     company_id: UUID,
